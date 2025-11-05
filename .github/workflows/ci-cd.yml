@@ -34,34 +34,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKERHUB_USERNAME }}/race-${{ matrix.service }}
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest
-      
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./src/${{ matrix.service }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.DOCKERHUB_USERNAME }}/race-${{ matrix.service }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
-      - name: Update Kubernetes manifests
-        run: |
-          IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-7)
-          sed -i "s|image: .*/${{ matrix.service }}:.*|image: ${{ env.DOCKERHUB_USERNAME }}/race-${{ matrix.service }}:main-${IMAGE_TAG}|g" k8s/${{ matrix.service }}/deployment.yaml
-      
-      - name: Commit and push updated manifests
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add k8s/${{ matrix.service }}/deployment.yaml
-          git diff --staged --quiet || git commit -m "Update ${{ matrix.service }} image to main-$(echo ${{ github.sha }} | cut -c1-7)"
-          git push
