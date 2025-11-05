@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: consumer
-        image: GoncaloRamos/race-consumer:latest
+        image: goncaloramos/race-consumer:latest
         ports:
         - name: http
           containerPort: 3001
