@@ -1,0 +1,18 @@
+{
+  "name": "race-consumer",
+  "version": "1.0.0",
+  "description": "Consumer service that processes race data and exposes REST API",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.3",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

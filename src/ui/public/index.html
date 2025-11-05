@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Streaming System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .race-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .race-selector select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+        }
+        
+        .leaderboard {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .leaderboard h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .participant {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        
+        .participant:hover {
+            transform: translateX(5px);
+            background: #e9ecef;
+        }
+        
+        .position {
+            font-size: 24px;
+            font-weight: bold;
+            width: 50px;
+            text-align: center;
+            color: #667eea;
+        }
+        
+        .position.first {
+            color: #ffd700;
+        }
+        
+        .position.second {
+            color: #c0c0c0;
+        }
+        
+        .position.third {
+            color: #cd7f32;
+        }
+        
+        .participant-info {
+            flex: 1;
+            margin-left: 20px;
+        }
+        
+        .participant-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .participant-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .stat {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .stat-label {
+            font-weight: 500;
+        }
+        
+        .progress-bar {
+            width: 200px;
+            height: 25px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status.running {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.finished {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏁 Race Streaming System</h1>
+        
+        <div class="race-selector" id="raceSelector" style="display: none;">
+            <select id="raceSelect" onchange="selectRace()">
+                <option value="">Select a race...</option>
+            </select>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading">Loading race data...</div>
+        <div id="leaderboard" class="leaderboard" style="display: none;"></div>
+    </div>
+
+    <script>
+        let currentRaceId = 0;
+        let updateInterval;
+
+        async function fetchRaces() {
+            try {
+                const response = await fetch('/api/races');
+                const races = await response.json();
+                
+                if (races.length > 0) {
+                    const select = document.getElementById('raceSelect');
+                    select.innerHTML = races.map(race => 
+                        `<option value="${race.id}">Race ${race.id} (${race.totalParticipants} participants)</option>`
+                    ).join('');
+                    
+                    document.getElementById('raceSelector').style.display = 'block';
+                    currentRaceId = races[0].id;
+                    select.value = currentRaceId;
+                    
+                    updateLeaderboard();
+                }
+            } catch (error) {
+                showError('Failed to fetch races: ' + error.message);
+            }
+        }
+
+        function selectRace() {
+            const select = document.getElementById('raceSelect');
+            currentRaceId = parseInt(select.value);
+            updateLeaderboard();
+        }
+
+        async function updateLeaderboard() {
+            try {
+                const response = await fetch(`/api/races/${currentRaceId}/leaderboard`);
+                const data = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'none';
+                
+                const leaderboard = document.getElementById('leaderboard');
+                leaderboard.style.display = 'block';
+                
+                leaderboard.innerHTML = `
+                    <h2>Race ${data.raceId} - Leaderboard</h2>
+                    ${data.leaderboard.map(p => `
+                        <div class="participant">
+                            <div class="position ${p.position === 1 ? 'first' : p.position === 2 ? 'second' : p.position === 3 ? 'third' : ''}">
+                                ${p.position}
+                            </div>
+                            <div class="participant-info">
+                                <div class="participant-name">${p.name}</div>
+                                <div class="participant-stats">
+                                    <div class="stat">
+                                        <span class="stat-label">Distance:</span>
+                                        <span>${p.distance}m</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="stat-label">Speed:</span>
+                                        <span>${p.speed} km/h</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${p.progress}%">
+                                    ${p.progress}%
+                                </div>
+                            </div>
+                            <div class="status ${p.status}">
+                                ${p.status}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (error) {
+                showError('Failed to update leaderboard: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Initialize
+        fetchRaces();
+        
+        // Update every 1 second
+        updateInterval = setInterval(updateLeaderboard, 1000);
+    </script>
+</body>
+</html>
