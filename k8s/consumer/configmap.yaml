@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consumer-config
+  namespace: default
+data:
+  RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+  PORT: "3001"

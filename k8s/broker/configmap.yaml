@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: default
+data:
+  rabbitmq.conf: |
+    loopback_users.guest = false
+    listeners.tcp.default = 5672
+    management.tcp.port = 15672
