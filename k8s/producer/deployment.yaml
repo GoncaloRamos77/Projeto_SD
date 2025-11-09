@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: producer
-        image: goncaloramos/race-producer:latest
+        image: projetosysd/race-producer:latest
         envFrom:
         - configMapRef:
             name: producer-config
