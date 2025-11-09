@@ -231,6 +231,12 @@
                 const response = await fetch(`/api/races/${currentRaceId}/leaderboard`);
                 const data = await response.json();
                 
+                // Check if we got valid data
+                if (!data || !data.leaderboard || !Array.isArray(data.leaderboard)) {
+                    console.warn('Invalid leaderboard data received:', data);
+                    return;
+                }
+                
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'none';
                 
