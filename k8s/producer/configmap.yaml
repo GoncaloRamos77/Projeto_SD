@@ -6,5 +6,5 @@ metadata:
 data:
   RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
   NUM_PARTICIPANTS: "10"
-  NUM_RACES: "1"
+  NUM_RACES: "5"
   PUBLISH_INTERVAL: "1000"
