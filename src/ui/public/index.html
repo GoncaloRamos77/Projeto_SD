@@ -203,20 +203,27 @@
                 const response = await fetch('/api/races');
                 const races = await response.json();
                 
-                if (races.length > 0) {
+                if (races && Array.isArray(races) && races.length > 0) {
                     const select = document.getElementById('raceSelect');
+                    const currentValue = select.value;
+                    
                     select.innerHTML = races.map(race => 
                         `<option value="${race.id}">Race ${race.id} (${race.totalParticipants} participants)</option>`
                     ).join('');
                     
                     document.getElementById('raceSelector').style.display = 'block';
-                    currentRaceId = races[0].id;
-                    select.value = currentRaceId;
                     
-                    updateLeaderboard();
+                    // Restore previously selected race or default to first
+                    if (currentValue && races.find(r => r.id == currentValue)) {
+                        select.value = currentValue;
+                        currentRaceId = parseInt(currentValue);
+                    } else {
+                        currentRaceId = races[0].id;
+                        select.value = currentRaceId;
+                    }
                 }
             } catch (error) {
-                showError('Failed to fetch races: ' + error.message);
+                console.error('Failed to fetch races:', error.message);
             }
         }
 
@@ -289,8 +296,11 @@
         // Initialize
         fetchRaces();
         
-        // Update every 1 second
-        updateInterval = setInterval(updateLeaderboard, 1000);
+        // Update leaderboard every 1 second
+        setInterval(updateLeaderboard, 1000);
+        
+        // Refresh race list every 5 seconds
+        setInterval(fetchRaces, 5000);
     </script>
 </body>
 </html>
