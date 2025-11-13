@@ -1,7 +1,7 @@
 const amqp = require('amqplib');
 const express = require('express');
 const cors = require('cors');
-
+// Forçar rebuild da imagem
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 const PORT = process.env.PORT || 3001;
 const QUEUE_NAME = 'race_events';
