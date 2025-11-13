@@ -113,7 +113,9 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
       distance: p.distance.toFixed(2),
       speed: p.speed.toFixed(2),
       status: p.status,
-      progress: ((p.distance / p.totalDistance) * 100).toFixed(1)
+      progress: ((p.distance / p.totalDistance) * 100).toFixed(1),
+      lat: p.lat,
+      lon: p.lon
     }))
   });
 });

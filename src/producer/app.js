@@ -10,6 +10,10 @@ const QUEUE_NAME = 'race_events';
 let connection;
 let channel;
 
+// Ponto inicial (ex: centro do Funchal)
+const START_LAT = 32.6507;
+const START_LON = -16.9090;
+
 // Generate random participant data
 function generateParticipant(id, raceId) {
   const names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
@@ -19,6 +23,8 @@ function generateParticipant(id, raceId) {
     name: names[id % names.length] + ` #${id}`,
     position: id + 1,
     speed: Math.random() * 50 + 50, // 50-100 km/h
+    lat: START_LAT + (Math.random() - 0.5) * 0.001, 
+    lon: START_LON + (Math.random() - 0.5) * 0.001,
     distance: 0,
     totalDistance: 1000, // 1000m race
     status: 'running',
@@ -37,6 +43,12 @@ function updateParticipant(participant) {
   participant.speed += (Math.random() - 0.5) * 10; // Random speed variation
   participant.speed = Math.max(30, Math.min(120, participant.speed)); // Keep speed in range
   participant.timestamp = Date.now();
+
+  // --- Simulação de movimento no mapa ---
+  // 0.00001 graus é aprox. 1.11 metros
+  const movementFactor = 0.00001; 
+  participant.lat += (Math.random() - 0.4) * participant.speed * movementFactor; // Mover para Norte
+  participant.lon += (Math.random() - 0.5) * participant.speed * movementFactor;
 
   if (participant.distance >= participant.totalDistance) {
     participant.distance = participant.totalDistance;

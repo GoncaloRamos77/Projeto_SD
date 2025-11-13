@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Race Streaming System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
     <style>
         * {
             margin: 0;
@@ -177,6 +180,13 @@
             border-radius: 10px;
             margin-bottom: 20px;
         }
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -188,16 +198,34 @@
                 <option value="">Select a race...</option>
             </select>
         </div>
-        
+        <div id="map"></div>
         <div id="error" class="error" style="display: none;"></div>
         <div id="loading" class="loading">Loading race data...</div>
         <div id="leaderboard" class="leaderboard" style="display: none;"></div>
     </div>
-
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
     <script>
         let currentRaceId = 0;
         let updateInterval;
+        let map;
+        let participantsLayer;
+        const START_LAT = 32.6507;
+        const START_LON = -16.9090;
 
+        // --- Função para inicializar o mapa ---
+        function initMap() {
+            map = L.map('map').setView([START_LAT, START_LON], 17); // Ponto inicial e zoom
+
+            // Adicionar o "tile layer" (o mapa base de OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Criar um "layer group" para os marcadores dos participantes
+            participantsLayer = L.layerGroup().addTo(map);
+        }
         async function fetchRaces() {
             try {
                 const response = await fetch('/api/races');
@@ -249,10 +277,19 @@
                 
                 const leaderboard = document.getElementById('leaderboard');
                 leaderboard.style.display = 'block';
-                
+                participantsLayer.clearLayers();
                 leaderboard.innerHTML = `
                     <h2>Race ${data.raceId} - Leaderboard</h2>
-                    ${data.leaderboard.map(p => `
+                    ${data.leaderboard.map(p => {
+                        
+                        // --- Adicionar marcador ao mapa para cada participante ---
+                        if (p.lat && p.lon) {
+                            L.marker([p.lat, p.lon])
+                                .bindPopup(`<b>${p.name}</b><br>Pos: ${p.position} | Vel: ${p.speed} km/h`)
+                                .addTo(participantsLayer);
+                        }
+
+                        return `
                         <div class="participant">
                             <div class="position ${p.position === 1 ? 'first' : p.position === 2 ? 'second' : p.position === 3 ? 'third' : ''}">
                                 ${p.position}
@@ -279,7 +316,7 @@
                                 ${p.status}
                             </div>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 `;
             } catch (error) {
                 showError('Failed to update leaderboard: ' + error.message);
@@ -292,7 +329,7 @@
             errorDiv.style.display = 'block';
             document.getElementById('loading').style.display = 'none';
         }
-
+        initMap();
         // Initialize
         fetchRaces();
         
