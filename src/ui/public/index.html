@@ -203,29 +203,48 @@
         <div id="loading" class="loading">Loading race data...</div>
         <div id="leaderboard" class="leaderboard" style="display: none;"></div>
     </div>
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
      crossorigin=""></script>
+     
     <script>
         let currentRaceId = 0;
         let updateInterval;
         let map;
         let participantsLayer;
-        const START_LAT = 32.6507;
-        const START_LON = -16.9090;
 
-        // --- Função para inicializar o mapa ---
+        // --- Coordenadas do Autódromo do Estoril ---
+        const TRACK_CENTER_LAT = 38.750; // Centro
+        const TRACK_CENTER_LON = -9.395; // Centro
+        const MAP_ZOOM = 16; // Zoom para ver a pista
+
+        // O *mesmo* array de percurso do producer, para desenhar a pista
+        const TRACK_PATH = [
+            [38.75051, -9.39420], [38.75231, -9.39515], [38.75294, -9.39291],
+            [38.75083, -9.39133], [38.74834, -9.39223], [38.74751, -9.39542],
+            [38.74780, -9.39702], [38.74902, -9.39805], [38.75084, -9.39920],
+            [38.75195, -9.40050], [38.74983, -9.40050], [38.74872, -9.39755],
+            [38.74992, -9.39520], [38.75021, -9.39462], [38.75051, -9.39420]
+        ];
+        
         function initMap() {
-            map = L.map('map').setView([START_LAT, START_LON], 17); // Ponto inicial e zoom
+            map = L.map('map').setView([TRACK_CENTER_LAT, TRACK_CENTER_LON], MAP_ZOOM);
 
-            // Adicionar o "tile layer" (o mapa base de OpenStreetMap)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
 
-            // Criar um "layer group" para os marcadores dos participantes
+            // --- Desenhar a Pista no Mapa ---
+            L.polyline(TRACK_PATH, { color: 'blue', weight: 5 }).addTo(map);
+            
+            // --- Desenhar a Linha de Meta ---
+            const meta = [TRACK_PATH[0], [38.75031, -9.39380]]; // Linha de meta (aprox.)
+            L.polyline(meta, { color: 'red', weight: 5, dashArray: '5, 10' }).addTo(map);
+
             participantsLayer = L.layerGroup().addTo(map);
         }
+
         async function fetchRaces() {
             try {
                 const response = await fetch('/api/races');
@@ -241,7 +260,6 @@
                     
                     document.getElementById('raceSelector').style.display = 'block';
                     
-                    // Restore previously selected race or default to first
                     if (currentValue && races.find(r => r.id == currentValue)) {
                         select.value = currentValue;
                         currentRaceId = parseInt(currentValue);
@@ -266,7 +284,6 @@
                 const response = await fetch(`/api/races/${currentRaceId}/leaderboard`);
                 const data = await response.json();
                 
-                // Check if we got valid data
                 if (!data || !data.leaderboard || !Array.isArray(data.leaderboard)) {
                     console.warn('Invalid leaderboard data received:', data);
                     return;
@@ -277,17 +294,23 @@
                 
                 const leaderboard = document.getElementById('leaderboard');
                 leaderboard.style.display = 'block';
-                participantsLayer.clearLayers();
+                
+                // Limpar marcadores antigos
+                participantsLayer.clearLayers(); 
+                
                 leaderboard.innerHTML = `
                     <h2>Race ${data.raceId} - Leaderboard</h2>
                     ${data.leaderboard.map(p => {
                         
-                        // --- Adicionar marcador ao mapa para cada participante ---
                         if (p.lat && p.lon) {
                             L.marker([p.lat, p.lon])
                                 .bindPopup(`<b>${p.name}</b><br>Pos: ${p.position} | Vel: ${p.speed} km/h`)
                                 .addTo(participantsLayer);
                         }
+
+                        // Calcular voltas
+                        const totalDistancePerLap = 4183; // Deve ser o mesmo valor do producer
+                        const laps = (p.distance / totalDistancePerLap).toFixed(1);
 
                         return `
                         <div class="participant">
@@ -304,6 +327,10 @@
                                     <div class="stat">
                                         <span class="stat-label">Speed:</span>
                                         <span>${p.speed} km/h</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="stat-label">Laps:</span>
+                                        <span>${laps}</span>
                                     </div>
                                 </div>
                             </div>
@@ -329,14 +356,12 @@
             errorDiv.style.display = 'block';
             document.getElementById('loading').style.display = 'none';
         }
-        initMap();
-        // Initialize
+        
+        // --- Inicializar ---
+        initMap(); 
         fetchRaces();
         
-        // Update leaderboard every 1 second
         setInterval(updateLeaderboard, 1000);
-        
-        // Refresh race list every 5 seconds
         setInterval(fetchRaces, 5000);
     </script>
 </body>
