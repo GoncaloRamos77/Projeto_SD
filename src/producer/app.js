@@ -149,7 +149,6 @@ function updateParticipant(participant) {
   return participant;
 }
 
-// Initialize RabbitMQ connection
 async function connectRabbitMQ() {
   try {
     console.log(`Connecting to RabbitMQ at ${RABBITMQ_URL}...`);
@@ -163,7 +162,6 @@ async function connectRabbitMQ() {
   }
 }
 
-// Publish race event
 function publishEvent(event) {
   if (!channel) {
     console.warn('Channel not ready, skipping event');
@@ -177,7 +175,6 @@ function publishEvent(event) {
   }
 }
 
-// Run race simulation
 async function runSimulation() {
   await connectRabbitMQ();
 
@@ -232,7 +229,6 @@ async function runSimulation() {
   }, PUBLISH_INTERVAL);
 }
 
-// Handle graceful shutdown
 process.on('SIGINT', async () => {
   console.log('Shutting down...');
   if (channel) await channel.close();
@@ -240,5 +236,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Start the producer
 runSimulation().catch(console.error);

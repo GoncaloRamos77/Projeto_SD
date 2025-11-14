@@ -6,10 +6,8 @@ const CONSUMER_API_URL = process.env.CONSUMER_API_URL || 'http://localhost:3001'
 
 const app = express();
 
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API proxy endpoint to avoid CORS issues
 app.get('/api/*', async (req, res) => {
   const apiPath = req.path.replace('/api', '');
   const url = `${CONSUMER_API_URL}${apiPath}`;
@@ -25,7 +23,6 @@ app.get('/api/*', async (req, res) => {
   }
 });
 
-// Serve index.html for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

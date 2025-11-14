@@ -10,10 +10,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Store race data in memory
 const raceData = new Map();
 
-// Initialize RabbitMQ consumer
 async function startConsumer() {
   try {
     console.log(`Connecting to RabbitMQ at ${RABBITMQ_URL}...`);
@@ -28,7 +26,6 @@ async function startConsumer() {
         try {
           const participant = JSON.parse(msg.content.toString());
           
-          // Store participant data by race ID
           if (!raceData.has(participant.raceId)) {
             raceData.set(participant.raceId, new Map());
           }
@@ -44,7 +41,6 @@ async function startConsumer() {
       }
     });
     
-    // Handle connection errors
     connection.on('error', (error) => {
       console.error('RabbitMQ connection error:', error.message);
     });
@@ -60,7 +56,7 @@ async function startConsumer() {
   }
 }
 
-// REST API endpoints
+
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: Date.now() });
 });
@@ -120,7 +116,6 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
   });
 });
 
-// Start services
 startConsumer();
 
 app.listen(PORT, () => {
