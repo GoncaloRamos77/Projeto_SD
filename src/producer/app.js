@@ -4,6 +4,9 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5
 const NUM_PARTICIPANTS = parseInt(process.env.NUM_PARTICIPANTS || '10');
 const NUM_RACES = parseInt(process.env.NUM_RACES || '1');
 const PUBLISH_INTERVAL = parseInt(process.env.PUBLISH_INTERVAL || '1000');
+const MIN_PARTICIPANTS = parseInt(process.env.MIN_PARTICIPANTS || NUM_PARTICIPANTS);
+const MAX_PARTICIPANTS = parseInt(process.env.MAX_PARTICIPANTS || NUM_PARTICIPANTS);
+const VARIABLE_PARTICIPANTS = process.env.VARIABLE_PARTICIPANTS === 'true';
 
 const QUEUE_NAME = 'race_events';
 
@@ -94,25 +97,51 @@ function calculatePositionOnTrack(distance) {
     return { lat: TRACK_PATH[TRACK_PATH.length - 1][0], lon: TRACK_PATH[TRACK_PATH.length - 1][1] };
 }
 
+// --- Perfis de Participantes ---
+const PARTICIPANT_PROFILES = [
+  { type: 'professional', baseSpeed: 200, speedVariation: 20, skill: 0.9 },
+  { type: 'experienced', baseSpeed: 180, speedVariation: 25, skill: 0.75 },
+  { type: 'intermediate', baseSpeed: 160, speedVariation: 30, skill: 0.6 },
+  { type: 'amateur', baseSpeed: 140, speedVariation: 35, skill: 0.4 }
+];
+
+const PARTICIPANT_NAMES = [
+  'Hamilton', 'Verstappen', 'Leclerc', 'Sainz', 'Russell', 'Norris', 'Piastri', 'Alonso',
+  'Perez', 'Gasly', 'Ocon', 'Stroll', 'Bottas', 'Zhou', 'Hulkenberg', 'Magnussen',
+  'Tsunoda', 'Ricciardo', 'Albon', 'Sargeant', 'Lawson', 'Colapinto', 'Bearman', 'Antonelli'
+];
+
 // --- Lógica da Simulação ---
 
 function generateParticipant(id, raceId) {
-  const names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
   const startPosition = TRACK_PATH[0];
   
+  // Selecionar perfil aleatório
+  const profile = PARTICIPANT_PROFILES[Math.floor(Math.random() * PARTICIPANT_PROFILES.length)];
+  const name = PARTICIPANT_NAMES[id % PARTICIPANT_NAMES.length];
+  
+  // Variação na velocidade base
+  const initialSpeed = profile.baseSpeed + (Math.random() - 0.5) * profile.speedVariation;
+  
   return {
-    id: `${raceId}-${id}`,
+    id: `race-${raceId}-p-${id}`,
     raceId,
-    name: names[id % names.length] + ` #${id}`,
+    name: `${name} #${id}`,
+    profile: profile.type,
+    skill: profile.skill,
     position: id + 1,
-    speed: Math.random() * 50 + 150, // Velocidade mais alta para uma pista (150-200 km/h)
+    speed: initialSpeed,
+    baseSpeed: profile.baseSpeed,
+    speedVariation: profile.speedVariation,
     
     // Posição inicial
     lat: startPosition[0], 
     lon: startPosition[1],
     
     distance: 0,
-    totalDistance: TRACK_TOTAL_DISTANCE * 5, // Simular 5 voltas
+    lap: 1,
+    totalLaps: 5, // 5 voltas
+    totalDistance: TRACK_TOTAL_DISTANCE * 5,
     status: 'running',
     timestamp: Date.now()
   };
@@ -124,9 +153,21 @@ function updateParticipant(participant) {
   const deltaTime = PUBLISH_INTERVAL / 1000; // Segundos
   const deltaDistance = (participant.speed / 3.6) * deltaTime; // m/s
   
+  const previousDistance = participant.distance;
   participant.distance += deltaDistance;
-  participant.speed += (Math.random() - 0.5) * 10; 
-  participant.speed = Math.max(100, Math.min(250, participant.speed)); // Limites de velocidade
+  
+  // Atualizar volta
+  participant.lap = Math.floor(participant.distance / TRACK_TOTAL_DISTANCE) + 1;
+  
+  // Variação de velocidade baseada no perfil e habilidade
+  const speedChange = (Math.random() - 0.5) * participant.speedVariation * (1 - participant.skill);
+  participant.speed += speedChange;
+  
+  // Limites de velocidade baseados no perfil
+  const minSpeed = participant.baseSpeed - participant.speedVariation * 2;
+  const maxSpeed = participant.baseSpeed + participant.speedVariation;
+  participant.speed = Math.max(minSpeed, Math.min(maxSpeed, participant.speed));
+  
   participant.timestamp = Date.now();
 
   // --- NOVA LÓGICA DE MOVIMENTO ---
@@ -139,6 +180,7 @@ function updateParticipant(participant) {
   if (participant.distance >= participant.totalDistance) {
     participant.distance = participant.totalDistance;
     participant.status = 'finished';
+    participant.lap = participant.totalLaps;
     
     // Posição final (linha de meta)
     const finalPosition = TRACK_PATH[TRACK_PATH.length - 1];
@@ -175,56 +217,91 @@ function publishEvent(event) {
   }
 }
 
+function getRandomParticipantCount() {
+  if (VARIABLE_PARTICIPANTS) {
+    return Math.floor(Math.random() * (MAX_PARTICIPANTS - MIN_PARTICIPANTS + 1)) + MIN_PARTICIPANTS;
+  }
+  return NUM_PARTICIPANTS;
+}
+
+function initializeRace(raceId) {
+  const numParticipants = getRandomParticipantCount();
+  const participants = [];
+  
+  for (let i = 0; i < numParticipants; i++) {
+    participants.push(generateParticipant(i, raceId));
+  }
+  
+  console.log(`[Race ${raceId}] Initialized with ${numParticipants} participants`);
+  return { id: raceId, participants, active: true, numParticipants };
+}
+
 async function runSimulation() {
   await connectRabbitMQ();
 
   const races = [];
   
+  console.log('\n=== SIMULATION CONFIGURATION ===');
+  console.log(`Number of races: ${NUM_RACES}`);
+  console.log(`Participants per race: ${VARIABLE_PARTICIPANTS ? `${MIN_PARTICIPANTS}-${MAX_PARTICIPANTS} (variable)` : NUM_PARTICIPANTS}`);
+  console.log(`Publish interval: ${PUBLISH_INTERVAL}ms`);
+  console.log(`Track: Autódromo do Estoril (${TRACK_TOTAL_DISTANCE}m)`);
+  console.log('================================\n');
+  
   for (let raceId = 0; raceId < NUM_RACES; raceId++) {
-    const participants = [];
-    for (let i = 0; i < NUM_PARTICIPANTS; i++) {
-      participants.push(generateParticipant(i, raceId));
-    }
-    races.push({ id: raceId, participants, active: true });
-    console.log(`Race ${raceId} initialized with ${NUM_PARTICIPANTS} participants`);
+    races.push(initializeRace(raceId));
   }
 
   // Loop de Simulação
+  let iterationCount = 0;
   setInterval(() => {
+    iterationCount++;
     let activeRaces = 0;
+    let totalActiveParticipants = 0;
     
     races.forEach(race => {
       if (!race.active) return;
+      
       let allFinished = true;
+      let activeParticipantsInRace = 0;
       
       race.participants.forEach(participant => {
         updateParticipant(participant);
         publishEvent(participant);
+        
         if (participant.status !== 'finished') {
           allFinished = false;
+          activeParticipantsInRace++;
         }
       });
 
+      // Atualizar posições baseadas na distância percorrida
       race.participants.sort((a, b) => b.distance - a.distance);
       race.participants.forEach((p, idx) => { p.position = idx + 1; });
 
       if (allFinished) {
         race.active = false;
-        console.log(`Race ${race.id} finished!`);
+        const winner = race.participants[0];
+        console.log(`\n[Race ${race.id}] FINISHED! Winner: ${winner.name} (Profile: ${winner.profile})`);
+        console.log(`[Race ${race.id}] Top 3: 1st ${race.participants[0].name}, 2nd ${race.participants[1]?.name || 'N/A'}, 3rd ${race.participants[2]?.name || 'N/A'}\n`);
+        
+        // Reiniciar corrida após 5 segundos
         setTimeout(() => {
-          race.participants = [];
-          for (let i = 0; i < NUM_PARTICIPANTS; i++) {
-            race.participants.push(generateParticipant(i, race.id));
-          }
+          const newRace = initializeRace(race.id);
+          race.participants = newRace.participants;
+          race.numParticipants = newRace.numParticipants;
           race.active = true;
-          console.log(`Race ${race.id} restarted`);
+          console.log(`[Race ${race.id}] Restarted\n`);
         }, 5000);
       } else {
         activeRaces++;
+        totalActiveParticipants += activeParticipantsInRace;
       }
     });
-    if (activeRaces > 0) {
-      console.log(`Active races: ${activeRaces}`);
+    
+    // Log de progresso a cada 10 iterações
+    if (iterationCount % 10 === 0 && activeRaces > 0) {
+      console.log(`[Iteration ${iterationCount}] Active races: ${activeRaces}, Total participants racing: ${totalActiveParticipants}`);
     }
   }, PUBLISH_INTERVAL);
 }
@@ -236,4 +313,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-runSimulation().catch(console.error);// Test change
+runSimulation().catch(console.error);
