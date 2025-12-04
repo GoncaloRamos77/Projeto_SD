@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/ci-cd.yml'
   pull_request:
     branches:
       - main
@@ -12,14 +15,47 @@ env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Images
+  detect-changes:
+    name: Detect Changed Services
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      producer: ${{ steps.changes.outputs.producer }}
+      consumer: ${{ steps.changes.outputs.consumer }}
+      ui: ${{ steps.changes.outputs.ui }}
     
-    strategy:
-      matrix:
-        service: [producer, consumer, ui]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q '^src/producer/'; then
+            echo "producer=true" >> $GITHUB_OUTPUT
+          else
+            echo "producer=false" >> $GITHUB_OUTPUT
+          fi
+          
+          if git diff --name-only HEAD^ HEAD | grep -q '^src/consumer/'; then
+            echo "consumer=true" >> $GITHUB_OUTPUT
+          else
+            echo "consumer=false" >> $GITHUB_OUTPUT
+          fi
+          
+          if git diff --name-only HEAD^ HEAD | grep -q '^src/ui/'; then
+            echo "ui=true" >> $GITHUB_OUTPUT
+          else
+            echo "ui=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-producer:
+    name: Build and Push Producer
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.producer == 'true'
     
     steps:
       - name: Checkout code
@@ -34,12 +70,70 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Build and push Docker image
+      - name: Build and push Producer image
         uses: docker/build-push-action@v5
         with:
-          context: ./src/${{ matrix.service }}
+          context: ./src/producer
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/race-${{ matrix.service }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ env.DOCKERHUB_USERNAME }}/race-producer:latest
+          cache-from: type=gha,scope=producer
+          cache-to: type=gha,mode=max,scope=producer
+
+  build-consumer:
+    name: Build and Push Consumer
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.consumer == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Build and push Consumer image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/consumer
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.DOCKERHUB_USERNAME }}/race-consumer:latest
+          cache-from: type=gha,scope=consumer
+          cache-to: type=gha,mode=max,scope=consumer
+
+  build-ui:
+    name: Build and Push UI
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ui == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Build and push UI image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/ui
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.DOCKERHUB_USERNAME }}/race-ui:latest
+          cache-from: type=gha,scope=ui
+          cache-to: type=gha,mode=max,scope=ui
