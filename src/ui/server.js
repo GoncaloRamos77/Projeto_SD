@@ -1,3 +1,4 @@
+// Test CI/CD pipeline - this comment tests auto-deployment
 const express = require('express');
 const path = require('path');
 
