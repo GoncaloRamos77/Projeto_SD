@@ -76,9 +76,23 @@ jobs:
           context: ./src/producer
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/race-producer:latest
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/race-producer:latest
+            ${{ env.DOCKERHUB_USERNAME }}/race-producer:${{ github.sha }}
           cache-from: type=gha,scope=producer
           cache-to: type=gha,mode=max,scope=producer
+      
+      - name: Update Producer deployment
+        run: |
+          sed -i 's|image:.*race-producer:.*|image: ${{ env.DOCKERHUB_USERNAME }}/race-producer:${{ github.sha }}|' k8s/producer/deployment.yaml
+      
+      - name: Commit and push updated manifest
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]@users.noreply.github.com"
+          git add k8s/producer/deployment.yaml
+          git diff --staged --quiet || git commit -m "Update Producer image to ${{ github.sha }}"
+          git push
 
   build-consumer:
     name: Build and Push Consumer
@@ -105,9 +119,23 @@ jobs:
           context: ./src/consumer
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/race-consumer:latest
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/race-consumer:latest
+            ${{ env.DOCKERHUB_USERNAME }}/race-consumer:${{ github.sha }}
           cache-from: type=gha,scope=consumer
           cache-to: type=gha,mode=max,scope=consumer
+      
+      - name: Update Consumer deployment
+        run: |
+          sed -i 's|image:.*race-consumer:.*|image: ${{ env.DOCKERHUB_USERNAME }}/race-consumer:${{ github.sha }}|' k8s/consumer/deployment.yaml
+      
+      - name: Commit and push updated manifest
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]@users.noreply.github.com"
+          git add k8s/consumer/deployment.yaml
+          git diff --staged --quiet || git commit -m "Update Consumer image to ${{ github.sha }}"
+          git push
 
   build-ui:
     name: Build and Push UI
@@ -134,6 +162,20 @@ jobs:
           context: ./src/ui
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/race-ui:latest
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/race-ui:latest
+            ${{ env.DOCKERHUB_USERNAME }}/race-ui:${{ github.sha }}
           cache-from: type=gha,scope=ui
           cache-to: type=gha,mode=max,scope=ui
+      
+      - name: Update UI deployment
+        run: |
+          sed -i 's|image:.*race-ui:.*|image: ${{ env.DOCKERHUB_USERNAME }}/race-ui:${{ github.sha }}|' k8s/ui/deployment.yaml
+      
+      - name: Commit and push updated manifest
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add k8s/ui/deployment.yaml
+          git diff --staged --quiet || git commit -m "Update UI image to ${{ github.sha }}"
+          git push
