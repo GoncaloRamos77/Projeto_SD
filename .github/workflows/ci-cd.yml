@@ -28,27 +28,44 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       
       - name: Detect changes
         id: changes
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -q '^src/producer/'; then
+          # Use github.event.before for accurate comparison (works for both regular commits and merges)
+          if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="${{ github.event.before }}"
+          else
+            # Fallback for first push
+            BASE_SHA="HEAD^"
+          fi
+          
+          echo "Detecting changes between ${BASE_SHA} and HEAD:"
+          git diff --name-only ${BASE_SHA} HEAD
+          
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^src/producer/'; then
             echo "producer=true" >> $GITHUB_OUTPUT
+            echo "Producer changed: true"
           else
             echo "producer=false" >> $GITHUB_OUTPUT
+            echo "Producer changed: false"
           fi
           
-          if git diff --name-only HEAD^ HEAD | grep -q '^src/consumer/'; then
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^src/consumer/'; then
             echo "consumer=true" >> $GITHUB_OUTPUT
+            echo "Consumer changed: true"
           else
             echo "consumer=false" >> $GITHUB_OUTPUT
+            echo "Consumer changed: false"
           fi
           
-          if git diff --name-only HEAD^ HEAD | grep -q '^src/ui/'; then
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^src/ui/'; then
             echo "ui=true" >> $GITHUB_OUTPUT
+            echo "UI changed: true"
           else
             echo "ui=false" >> $GITHUB_OUTPUT
+            echo "UI changed: false"
           fi
 
   build-producer:
