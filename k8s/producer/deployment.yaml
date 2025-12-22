@@ -18,6 +18,10 @@ spec:
       containers:
       - name: producer
         image: projetosysd/race-producer:latest
+        ports:
+        - name: http
+          containerPort: 3002
+          protocol: TCP
         envFrom:
         - configMapRef:
             name: producer-config
@@ -28,3 +32,15 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 10
+          periodSeconds: 5

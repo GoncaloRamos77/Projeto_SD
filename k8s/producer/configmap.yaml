@@ -8,6 +8,7 @@ data:
   NUM_PARTICIPANTS: "10"
   NUM_RACES: "3"
   PUBLISH_INTERVAL: "500"
+  PORT: "3002"
   # Configuração para número variável de participantes
   VARIABLE_PARTICIPANTS: "true"
   MIN_PARTICIPANTS: "5"

@@ -1,4 +1,5 @@
 const amqp = require('amqplib');
+const express = require('express');
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 const NUM_PARTICIPANTS = parseInt(process.env.NUM_PARTICIPANTS || '10');
@@ -7,11 +8,22 @@ const PUBLISH_INTERVAL = parseInt(process.env.PUBLISH_INTERVAL || '1000');
 const MIN_PARTICIPANTS = parseInt(process.env.MIN_PARTICIPANTS || NUM_PARTICIPANTS);
 const MAX_PARTICIPANTS = parseInt(process.env.MAX_PARTICIPANTS || NUM_PARTICIPANTS);
 const VARIABLE_PARTICIPANTS = process.env.VARIABLE_PARTICIPANTS === 'true';
+const HEALTH_PORT = parseInt(process.env.PORT || '3002');
 
 const QUEUE_NAME = 'race_events';
 
 let connection;
 let channel;
+
+// Simple HTTP health endpoint for Kubernetes probes
+const app = express();
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: Date.now() });
+});
+
+app.listen(HEALTH_PORT, () => {
+  console.log(`Producer health endpoint listening on port ${HEALTH_PORT}`);
+});
 
 // --- DADOS DO AUTÓDROMO DO ESTORIL ---
 
