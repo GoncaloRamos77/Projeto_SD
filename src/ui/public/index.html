@@ -361,7 +361,8 @@
         initMap(); // Chamar a nova função
         fetchRaces();
         
-        setInterval(updateLeaderboard, 1000);
+        // Atualizações mais frequentes para reduzir latência percebida
+        setInterval(updateLeaderboard, 500);
         setInterval(fetchRaces, 5000);
     </script>
 </body>
