@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: producer
-        image: projetosysd/race-producer:c186aef82fe65ed5c6f4a2292dfab58f97fd1d32
+        image: projetosysd/race-producer:4965b7d73d306841d162f1d2de5c9a1075b6ec1b
         ports:
         - name: http
           containerPort: 3002
