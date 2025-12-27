@@ -10,27 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- Prometheus metrics ---
-const client = require('prom-client');
-client.collectDefaultMetrics();
-const messagesConsumed = new client.Counter({ name: 'consumer_messages_consumed_total', help: 'Total number of messages consumed by consumer' });
-const httpRequests = new client.Counter({ name: 'consumer_http_requests_total', help: 'Count of HTTP requests to consumer' });
-
-app.get('/metrics', async (req, res) => {
-  try {
-    res.set('Content-Type', client.register.contentType);
-    res.end(await client.register.metrics());
-  } catch (err) {
-    res.status(500).end(err.message);
-  }
-});
-
-// simple middleware to count HTTP requests
-app.use((req, res, next) => {
-  httpRequests.inc();
-  next();
-});
-
 const raceData = new Map();
 
 async function startConsumer() {
@@ -54,7 +33,6 @@ async function startConsumer() {
           const race = raceData.get(participant.raceId);
           race.set(participant.id, participant);
           
-          messagesConsumed.inc();
           channel.ack(msg);
         } catch (error) {
           console.error('Error processing message:', error.message);
