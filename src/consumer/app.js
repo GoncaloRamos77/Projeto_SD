@@ -6,11 +6,17 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5
 const PORT = process.env.PORT || 3001;
 const QUEUE_NAME = 'race_events';
 
+// Races are stored in-memory. If the producer is reconfigured (e.g. NUM_RACES reduced),
+// old race IDs may linger here and still show up in the UI. To avoid that, we expire
+// races that haven't received updates recently.
+const RACE_TTL_MS = parseInt(process.env.RACE_TTL_MS || '15000');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const raceData = new Map();
+const raceLastSeen = new Map();
 
 async function startConsumer() {
   try {
@@ -32,6 +38,7 @@ async function startConsumer() {
           
           const race = raceData.get(participant.raceId);
           race.set(participant.id, participant);
+          raceLastSeen.set(participant.raceId, Date.now());
           
           channel.ack(msg);
         } catch (error) {
@@ -63,8 +70,12 @@ app.get('/health', (req, res) => {
 
 app.get('/races', (req, res) => {
   const races = [];
+  const now = Date.now();
   
   raceData.forEach((participants, raceId) => {
+    const lastSeen = raceLastSeen.get(raceId) || 0;
+    if (now - lastSeen > RACE_TTL_MS) return;
+
     const participantList = Array.from(participants.values());
     races.push({
       id: raceId,
@@ -72,14 +83,18 @@ app.get('/races', (req, res) => {
       totalParticipants: participantList.length
     });
   });
-  
+
+  // Sort for stable UI
+  races.sort((a, b) => a.id - b.id);
   res.json(races);
 });
 
 app.get('/races/:raceId', (req, res) => {
   const raceId = parseInt(req.params.raceId);
-  
-  if (!raceData.has(raceId)) {
+  const now = Date.now();
+  const lastSeen = raceLastSeen.get(raceId) || 0;
+
+  if (!raceData.has(raceId) || (now - lastSeen > RACE_TTL_MS)) {
     return res.status(404).json({ error: 'Race not found' });
   }
   
@@ -93,8 +108,10 @@ app.get('/races/:raceId', (req, res) => {
 
 app.get('/races/:raceId/leaderboard', (req, res) => {
   const raceId = parseInt(req.params.raceId);
-  
-  if (!raceData.has(raceId)) {
+  const now = Date.now();
+  const lastSeen = raceLastSeen.get(raceId) || 0;
+
+  if (!raceData.has(raceId) || (now - lastSeen > RACE_TTL_MS)) {
     return res.status(404).json({ error: 'Race not found' });
   }
   
@@ -115,6 +132,17 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
     }))
   });
 });
+
+// Periodic cleanup to prevent unbounded memory growth and stale races in UI
+setInterval(() => {
+  const now = Date.now();
+  for (const [raceId, lastSeen] of raceLastSeen.entries()) {
+    if (now - lastSeen > RACE_TTL_MS) {
+      raceLastSeen.delete(raceId);
+      raceData.delete(raceId);
+    }
+  }
+}, Math.min(5000, Math.max(1000, Math.floor(RACE_TTL_MS / 3))));
 
 startConsumer();
 
