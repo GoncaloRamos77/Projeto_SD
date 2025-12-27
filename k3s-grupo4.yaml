@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Config
+clusters:
+- name: k3s-grupo4
+  cluster:
+    server: https://10.2.15.161:6443
+    insecure-skip-tls-verify: true
+
+users:
+- name: grupo4
+  user:
+    username: grupo4
+    password: Iz8JJ8yBue
+
+contexts:
+- name: k3s-grupo4
+  context:
+    cluster: k3s-grupo4
+    user: grupo4
+   
+    namespace: grupo4
+current-context: k3s-grupo4
