@@ -6,4 +6,3 @@ metadata:
 data:
   RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
   PORT: "3001"
-  #comentario de teste
