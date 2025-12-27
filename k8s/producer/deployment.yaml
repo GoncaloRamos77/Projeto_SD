@@ -16,7 +16,7 @@ spec:
         app: producer
       annotations:
         checksum/configmap: 
-          c62654d7f143df200a851419f4a51457d3e206bb2d185965f009c57a47452826
+          44467f26a4d31dd2cfecb6e5f48c735a1237e31a02f6c6f18a63c53f7bddbd96
     spec:
       containers:
       - name: producer
