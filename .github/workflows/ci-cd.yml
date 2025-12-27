@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'k8s/**'
+      - 'argocd/**'
       - '.github/workflows/ci-cd.yml'
   pull_request:
     branches:
@@ -26,6 +28,10 @@ jobs:
       producer: ${{ steps.changes.outputs.producer }}
       consumer: ${{ steps.changes.outputs.consumer }}
       ui: ${{ steps.changes.outputs.ui }}
+      producer_cfg: ${{ steps.changes.outputs.producer_cfg }}
+      consumer_cfg: ${{ steps.changes.outputs.consumer_cfg }}
+      ui_cfg: ${{ steps.changes.outputs.ui_cfg }}
+      broker_cfg: ${{ steps.changes.outputs.broker_cfg }}
     
     steps:
       - name: Checkout code
@@ -71,6 +77,40 @@ jobs:
             echo "UI changed: false"
           fi
 
+          # ConfigMap changes: envFrom ConfigMaps do NOT trigger pod restart.
+          # We detect these changes and later bump a checksum annotation in the matching Deployment.
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^k8s/producer/configmap.yaml$'; then
+            echo "producer_cfg=true" >> $GITHUB_OUTPUT
+            echo "Producer ConfigMap changed: true"
+          else
+            echo "producer_cfg=false" >> $GITHUB_OUTPUT
+            echo "Producer ConfigMap changed: false"
+          fi
+
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^k8s/consumer/configmap.yaml$'; then
+            echo "consumer_cfg=true" >> $GITHUB_OUTPUT
+            echo "Consumer ConfigMap changed: true"
+          else
+            echo "consumer_cfg=false" >> $GITHUB_OUTPUT
+            echo "Consumer ConfigMap changed: false"
+          fi
+
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^k8s/ui/configmap.yaml$'; then
+            echo "ui_cfg=true" >> $GITHUB_OUTPUT
+            echo "UI ConfigMap changed: true"
+          else
+            echo "ui_cfg=false" >> $GITHUB_OUTPUT
+            echo "UI ConfigMap changed: false"
+          fi
+
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^k8s/broker/configmap.yaml$'; then
+            echo "broker_cfg=true" >> $GITHUB_OUTPUT
+            echo "Broker ConfigMap changed: true"
+          else
+            echo "broker_cfg=false" >> $GITHUB_OUTPUT
+            echo "Broker ConfigMap changed: false"
+          fi
+
   build-producer:
     name: Build and Push Producer
     runs-on: ubuntu-latest
@@ -114,6 +154,93 @@ jobs:
           git config --local user.name "github-actions[bot]@users.noreply.github.com"
           git add k8s/producer/deployment.yaml
           git diff --staged --quiet || git commit -m "Update Producer image to ${{ github.sha }}"
+          git push
+
+  rollout-on-configmap-change:
+    name: Rollout Deployments on ConfigMap Changes
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.producer_cfg == 'true' ||
+      needs.detect-changes.outputs.consumer_cfg == 'true' ||
+      needs.detect-changes.outputs.ui_cfg == 'true' ||
+      needs.detect-changes.outputs.broker_cfg == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install YAML tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruamel.yaml
+
+      - name: Bump Deployment checksum annotations
+        env:
+          PRODUCER_CFG_CHANGED: ${{ needs.detect-changes.outputs.producer_cfg }}
+          CONSUMER_CFG_CHANGED: ${{ needs.detect-changes.outputs.consumer_cfg }}
+          UI_CFG_CHANGED: ${{ needs.detect-changes.outputs.ui_cfg }}
+          BROKER_CFG_CHANGED: ${{ needs.detect-changes.outputs.broker_cfg }}
+        run: |
+          set -euo pipefail
+
+          bump() {
+            local service="$1"
+            local cfg="k8s/${service}/configmap.yaml"
+            local dep="k8s/${service}/deployment.yaml"
+
+            if [ ! -f "$cfg" ] || [ ! -f "$dep" ]; then
+              echo "Skipping ${service}: missing $cfg or $dep"
+              return 0
+            fi
+
+            local checksum
+            checksum=$(sha256sum "$cfg" | awk '{print $1}')
+
+            python - "$dep" "$checksum" <<'PY'
+import sys
+from ruamel.yaml import YAML
+
+dep_path = sys.argv[1]
+checksum = sys.argv[2]
+
+yaml = YAML()
+yaml.preserve_quotes = True
+
+with open(dep_path, 'r', encoding='utf-8') as f:
+    doc = yaml.load(f)
+
+spec = doc.setdefault('spec', {})
+tpl = spec.setdefault('template', {})
+meta = tpl.setdefault('metadata', {})
+ann = meta.setdefault('annotations', {})
+ann['checksum/configmap'] = checksum
+
+with open(dep_path, 'w', encoding='utf-8') as f:
+    yaml.dump(doc, f)
+
+print(f"Updated {dep_path}: checksum/configmap={checksum}")
+PY
+          }
+
+          if [ "$PRODUCER_CFG_CHANGED" = "true" ]; then bump producer; fi
+          if [ "$CONSUMER_CFG_CHANGED" = "true" ]; then bump consumer; fi
+          if [ "$UI_CFG_CHANGED" = "true" ]; then bump ui; fi
+          if [ "$BROKER_CFG_CHANGED" = "true" ]; then bump broker; fi
+
+      - name: Commit and push updated manifests
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add k8s/*/deployment.yaml
+          git diff --staged --quiet || git commit -m "Rollout: bump checksum annotations for ConfigMap changes"
           git push
 
   build-consumer:
