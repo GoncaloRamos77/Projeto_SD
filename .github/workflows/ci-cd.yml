@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
@@ -122,6 +126,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -150,11 +155,22 @@ jobs:
       
       - name: Commit and push updated manifest
         run: |
+          set -euo pipefail
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]@users.noreply.github.com"
           git add k8s/producer/deployment.yaml
           git diff --staged --quiet || git commit -m "Update Producer image to ${{ github.sha }}"
-          git push
+
+          # Avoid non-fast-forward failures when multiple jobs push to main
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main || true
+            if git push; then
+              exit 0
+            fi
+            sleep $((i * 2))
+          done
+          echo "git push failed after retries" >&2
+          exit 1
 
   rollout-on-configmap-change:
     name: Rollout Deployments on ConfigMap Changes
@@ -171,6 +187,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -214,11 +231,22 @@ jobs:
 
       - name: Commit and push updated manifests
         run: |
+          set -euo pipefail
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add k8s/*/deployment.yaml
           git diff --staged --quiet || git commit -m "Rollout: bump checksum annotations for ConfigMap changes"
-          git push
+
+          # Avoid non-fast-forward failures when multiple jobs push to main
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main || true
+            if git push; then
+              exit 0
+            fi
+            sleep $((i * 2))
+          done
+          echo "git push failed after retries" >&2
+          exit 1
 
   build-consumer:
     name: Build and Push Consumer
@@ -231,6 +259,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -259,11 +288,22 @@ jobs:
       
       - name: Commit and push updated manifest
         run: |
+          set -euo pipefail
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]@users.noreply.github.com"
           git add k8s/consumer/deployment.yaml
           git diff --staged --quiet || git commit -m "Update Consumer image to ${{ github.sha }}"
-          git push
+
+          # Avoid non-fast-forward failures when multiple jobs push to main
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main || true
+            if git push; then
+              exit 0
+            fi
+            sleep $((i * 2))
+          done
+          echo "git push failed after retries" >&2
+          exit 1
 
   build-ui:
     name: Build and Push UI
@@ -276,6 +316,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -304,8 +345,19 @@ jobs:
       
       - name: Commit and push updated manifest
         run: |
+          set -euo pipefail
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add k8s/ui/deployment.yaml
           git diff --staged --quiet || git commit -m "Update UI image to ${{ github.sha }}"
-          git push
+
+          # Avoid non-fast-forward failures when multiple jobs push to main
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main || true
+            if git push; then
+              exit 0
+            fi
+            sleep $((i * 2))
+          done
+          echo "git push failed after retries" >&2
+          exit 1
