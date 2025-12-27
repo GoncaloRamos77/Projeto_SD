@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: ui
-        image: projetosysd/race-ui:6744f38be88f0de8b70eed32d115a20b582a7a87
+        image: projetosysd/race-ui:7b573a47dcb260cfd4fc75f4285deac38fcab4d8
         imagePullPolicy: Always
         ports:
         - name: http
