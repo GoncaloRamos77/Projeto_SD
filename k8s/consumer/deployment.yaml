@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: consumer
-        image: projetosysd/race-consumer:latest
+        image: projetosysd/race-consumer:3d6cc8e138b1bc3dcfb471d20ba89d60e0eda505
         ports:
         - name: http
           containerPort: 3001
