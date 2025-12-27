@@ -204,30 +204,7 @@ jobs:
             local checksum
             checksum=$(sha256sum "$cfg" | awk '{print $1}')
 
-            python - "$dep" "$checksum" <<'PY'
-import sys
-from ruamel.yaml import YAML
-
-dep_path = sys.argv[1]
-checksum = sys.argv[2]
-
-yaml = YAML()
-yaml.preserve_quotes = True
-
-with open(dep_path, 'r', encoding='utf-8') as f:
-    doc = yaml.load(f)
-
-spec = doc.setdefault('spec', {})
-tpl = spec.setdefault('template', {})
-meta = tpl.setdefault('metadata', {})
-ann = meta.setdefault('annotations', {})
-ann['checksum/configmap'] = checksum
-
-with open(dep_path, 'w', encoding='utf-8') as f:
-    yaml.dump(doc, f)
-
-print(f"Updated {dep_path}: checksum/configmap={checksum}")
-PY
+            python -c "import sys; from ruamel.yaml import YAML; dep_path=sys.argv[1]; checksum=sys.argv[2]; y=YAML(); y.preserve_quotes=True; f=open(dep_path,'r',encoding='utf-8'); doc=y.load(f); f.close(); spec=doc.setdefault('spec',{}); tpl=spec.setdefault('template',{}); meta=tpl.setdefault('metadata',{}); ann=meta.setdefault('annotations',{}); ann['checksum/configmap']=checksum; f=open(dep_path,'w',encoding='utf-8'); y.dump(doc,f); f.close(); print(f'Updated {dep_path}: checksum/configmap={checksum}')" "$dep" "$checksum"
           }
 
           if [ "$PRODUCER_CFG_CHANGED" = "true" ]; then bump producer; fi
