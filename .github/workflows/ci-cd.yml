@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'k8s/**'
+      - 'monitoring/**'
+      - 'argocd/**'
       - '.github/workflows/ci-cd.yml'
   pull_request:
     branches:
@@ -47,7 +50,7 @@ jobs:
           echo "Detecting changes between ${BASE_SHA} and HEAD:"
           git diff --name-only ${BASE_SHA} HEAD
           
-          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^src/producer/'; then
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q -E '^(src/producer/|k8s/producer/)'; then
             echo "producer=true" >> $GITHUB_OUTPUT
             echo "Producer changed: true"
           else
@@ -55,7 +58,7 @@ jobs:
             echo "Producer changed: false"
           fi
           
-          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^src/consumer/'; then
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q -E '^(src/consumer/|k8s/consumer/)'; then
             echo "consumer=true" >> $GITHUB_OUTPUT
             echo "Consumer changed: true"
           else
@@ -63,7 +66,7 @@ jobs:
             echo "Consumer changed: false"
           fi
           
-          if git diff --name-only ${BASE_SHA} HEAD | grep -q '^src/ui/'; then
+          if git diff --name-only ${BASE_SHA} HEAD | grep -q -E '^(src/ui/|k8s/ui/)'; then
             echo "ui=true" >> $GITHUB_OUTPUT
             echo "UI changed: true"
           else
