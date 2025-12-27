@@ -1,0 +1,15 @@
+{
+  "title": "Producer Metrics",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Messages Published",
+      "targets": [
+        { "expr": "producer_messages_published_total", "legendFormat": "published total" }
+      ],
+      "id": 1
+    }
+  ],
+  "schemaVersion": 16,
+  "version": 1
+}

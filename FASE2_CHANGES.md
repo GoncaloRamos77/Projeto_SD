@@ -207,12 +207,14 @@ kubectl logs -f deployment/producer
 
 ## Próximos Passos
 
+**Implementado:** métricas Prometheus adicionadas nos serviços Producer, Consumer e UI (endpoint `/metrics`). ServiceMonitors e dashboards Grafana (JSON) adicionados em `monitoring/`.
+
 Para completar a Fase 2, ainda falta:
 - [ ] Atualizar Consumer para processar novos campos
 - [ ] Atualizar UI para mostrar perfis e voltas
 - [ ] Implementar armazenamento de dados
-- [ ] Adicionar métricas Prometheus
-- [ ] Configurar Grafana dashboards
+- [x] Adicionar métricas Prometheus
+- [x] Configurar Grafana dashboards
 - [ ] Implementar alta disponibilidade
 - [ ] Adicionar mecanismos de segurança
 

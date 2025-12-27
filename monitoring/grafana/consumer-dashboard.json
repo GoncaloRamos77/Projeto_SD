@@ -1,0 +1,15 @@
+{
+  "title": "Consumer Metrics",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Messages Consumed",
+      "targets": [
+        { "expr": "consumer_messages_consumed_total", "legendFormat": "consumed total" }
+      ],
+      "id": 2
+    }
+  ],
+  "schemaVersion": 16,
+  "version": 1
+}
