@@ -16,36 +16,6 @@ spec:
     port: 15672
     targetPort: 15672
     protocol: TCP
-  - name: prometheus
-    port: 15692
-    targetPort: 15692
-    protocol: TCP
-  selector:
-    app: rabbitmq
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: rabbitmq-headless
-  namespace: default
-  labels:
-    app: rabbitmq
-spec:
-  clusterIP: None
-  publishNotReadyAddresses: true
-  ports:
-  - name: amqp
-    port: 5672
-    targetPort: 5672
-    protocol: TCP
-  - name: epmd
-    port: 4369
-    targetPort: 4369
-    protocol: TCP
-  - name: dist
-    port: 25672
-    targetPort: 25672
-    protocol: TCP
   selector:
     app: rabbitmq
 ---
