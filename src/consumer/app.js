@@ -1,6 +1,7 @@
 const amqp = require('amqplib');
 const express = require('express');
 const cors = require('cors');
+const promClient = require('prom-client');
 // Forçar rebuild da imagem
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 const PORT = process.env.PORT || 3001;
@@ -15,8 +16,51 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Prometheus metrics setup
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+const messagesConsumed = new promClient.Counter({
+  name: 'race_messages_consumed_total',
+  help: 'Total number of messages consumed from RabbitMQ',
+  labelNames: ['race_id'],
+  registers: [register]
+});
+
+const apiRequests = new promClient.Counter({
+  name: 'race_api_requests_total',
+  help: 'Total number of API requests',
+  labelNames: ['method', 'endpoint', 'status'],
+  registers: [register]
+});
+
+const apiDuration = new promClient.Histogram({
+  name: 'race_api_duration_seconds',
+  help: 'API request duration in seconds',
+  labelNames: ['method', 'endpoint'],
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
+  registers: [register]
+});
+
+const racesTracked = new promClient.Gauge({
+  name: 'race_consumer_races_tracked',
+  help: 'Number of races currently being tracked',
+  registers: [register]
+});
+
 const raceData = new Map();
 const raceLastSeen = new Map();
+
+// Middleware to track API metrics
+app.use((req, res, next) => {
+  const end = apiDuration.startTimer();
+  res.on('finish', () => {
+    const endpoint = req.route?.path || req.path;
+    apiRequests.inc({ method: req.method, endpoint, status: res.statusCode });
+    end({ method: req.method, endpoint });
+  });
+  next();
+});
 
 async function startConsumer() {
   try {
@@ -39,6 +83,9 @@ async function startConsumer() {
           const race = raceData.get(participant.raceId);
           race.set(participant.id, participant);
           raceLastSeen.set(participant.raceId, Date.now());
+          
+          messagesConsumed.inc({ race_id: participant.raceId });
+          racesTracked.set(raceData.size);
           
           channel.ack(msg);
         } catch (error) {
@@ -66,6 +113,11 @@ async function startConsumer() {
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: Date.now() });
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
 });
 
 app.get('/races', (req, res) => {

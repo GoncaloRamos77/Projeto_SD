@@ -1,5 +1,6 @@
 const amqp = require('amqplib');
 const express = require('express');
+const promClient = require('prom-client');
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 const NUM_PARTICIPANTS = parseInt(process.env.NUM_PARTICIPANTS || '10');
@@ -15,14 +16,51 @@ const QUEUE_NAME = 'race_events';
 let connection;
 let channel;
 
+// Prometheus metrics setup
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+// Custom metrics
+const eventsPublished = new promClient.Counter({
+  name: 'race_events_published_total',
+  help: 'Total number of race events published to RabbitMQ',
+  labelNames: ['race_id'],
+  registers: [register]
+});
+
+const activeRacesGauge = new promClient.Gauge({
+  name: 'race_active_races',
+  help: 'Number of currently active races',
+  registers: [register]
+});
+
+const activeParticipantsGauge = new promClient.Gauge({
+  name: 'race_active_participants',
+  help: 'Number of currently active participants across all races',
+  registers: [register]
+});
+
+const publishLatency = new promClient.Histogram({
+  name: 'race_publish_latency_seconds',
+  help: 'Latency of publishing events to RabbitMQ',
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
+  registers: [register]
+});
+
 // Simple HTTP health endpoint for Kubernetes probes
 const app = express();
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: Date.now() });
 });
 
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
 app.listen(HEALTH_PORT, () => {
   console.log(`Producer health endpoint listening on port ${HEALTH_PORT}`);
+  console.log(`Prometheus metrics available at http://localhost:${HEALTH_PORT}/metrics`);
 });
 
 // --- DADOS DO AUTÓDROMO DO ESTORIL ---
@@ -221,11 +259,15 @@ function publishEvent(event) {
     console.warn('Channel not ready, skipping event');
     return;
   }
+  const end = publishLatency.startTimer();
   try {
     const message = JSON.stringify(event);
     channel.sendToQueue(QUEUE_NAME, Buffer.from(message), { persistent: true });
+    eventsPublished.inc({ race_id: event.raceId });
+    end();
   } catch (error) {
     console.error('Error publishing event:', error.message);
+    end();
   }
 }
 
@@ -310,6 +352,10 @@ async function runSimulation() {
         totalActiveParticipants += activeParticipantsInRace;
       }
     });
+    
+    // Update Prometheus gauges
+    activeRacesGauge.set(activeRaces);
+    activeParticipantsGauge.set(totalActiveParticipants);
     
     // Log de progresso a cada 10 iterações
     if (iterationCount % 10 === 0 && activeRaces > 0) {
