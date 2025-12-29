@@ -14,6 +14,9 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+      annotations:
+        checksum/configmap: 
+          159221e4831c25c5e5782bef2a1b503dd18a98d54fc5d49e4c90a6967b89cd6f
     spec:
       containers:
       - name: rabbitmq
