@@ -6,7 +6,12 @@ metadata:
   labels:
     app: ui
 spec:
-  replicas: 2
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: ui
@@ -19,10 +24,23 @@ spec:
         prometheus.io/port: "3000"
         prometheus.io/path: "/metrics"
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ui
+              topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 30
       containers:
       - name: ui
         image: projetosysd/race-ui:cc66966ae3ae54ca8cb42f0e15249bcf35793a36
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - name: http
           containerPort: 3000
@@ -32,20 +50,32 @@ spec:
             name: ui-config
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
             memory: "256Mi"
             cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         livenessProbe:
           httpGet:
             path: /
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        startupProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
