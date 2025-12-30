@@ -11,7 +11,12 @@ const MAX_PARTICIPANTS = parseInt(process.env.MAX_PARTICIPANTS || NUM_PARTICIPAN
 const VARIABLE_PARTICIPANTS = process.env.VARIABLE_PARTICIPANTS === 'true';
 const HEALTH_PORT = parseInt(process.env.PORT || '3002');
 
-const QUEUE_NAME = 'race_events';
+// Use a fanout exchange so every consumer replica receives a full copy of the
+// stream. With a single queue and multiple consumers, RabbitMQ load-balances
+// messages, which made each consumer hold only a fraction of the race state
+// and the UI became inconsistent when scaled out. A fanout exchange guarantees
+// broadcast semantics while keeping consumers stateless.
+const EXCHANGE_NAME = process.env.RACE_EXCHANGE || 'race_events';
 
 let connection;
 let channel;
@@ -246,8 +251,8 @@ async function connectRabbitMQ() {
     console.log(`Connecting to RabbitMQ at ${RABBITMQ_URL}...`);
     connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
-    await channel.assertQueue(QUEUE_NAME, { durable: true });
-    console.log(`Connected to RabbitMQ. Queue '${QUEUE_NAME}' ready.`);
+    await channel.assertExchange(EXCHANGE_NAME, 'fanout', { durable: true });
+    console.log(`Connected to RabbitMQ. Exchange '${EXCHANGE_NAME}' ready.`);
   } catch (error) {
     console.error('Failed to connect to RabbitMQ:', error.message);
     setTimeout(connectRabbitMQ, 5000); // Tentar novamente
@@ -262,7 +267,7 @@ function publishEvent(event) {
   const end = publishLatency.startTimer();
   try {
     const message = JSON.stringify(event);
-    channel.sendToQueue(QUEUE_NAME, Buffer.from(message), { persistent: true });
+    channel.publish(EXCHANGE_NAME, '', Buffer.from(message), { persistent: true });
     eventsPublished.inc({ race_id: event.raceId });
     end();
   } catch (error) {

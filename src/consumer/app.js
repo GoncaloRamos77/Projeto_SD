@@ -5,7 +5,9 @@ const promClient = require('prom-client');
 // Forçar rebuild da imagem
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 const PORT = process.env.PORT || 3001;
-const QUEUE_NAME = 'race_events';
+// Fanout exchange name shared with producer. Each consumer replica gets its own
+// queue bound to this exchange to receive all messages (not load-balanced).
+const EXCHANGE_NAME = process.env.RACE_EXCHANGE || 'race_events';
 
 // Races are stored in-memory. If the producer is reconfigured (e.g. NUM_RACES reduced),
 // old race IDs may linger here and still show up in the UI. To avoid that, we expire
@@ -67,11 +69,15 @@ async function startConsumer() {
     console.log(`Connecting to RabbitMQ at ${RABBITMQ_URL}...`);
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
-    await channel.assertQueue(QUEUE_NAME, { durable: true });
+    await channel.assertExchange(EXCHANGE_NAME, 'fanout', { durable: true });
+    // Create a dedicated queue per consumer instance to receive the full stream
+    // instead of sharing one queue (which split the data across pods).
+    const { queue } = await channel.assertQueue('', { exclusive: true });
+    await channel.bindQueue(queue, EXCHANGE_NAME, '');
     
-    console.log(`Connected to RabbitMQ. Consuming from queue '${QUEUE_NAME}'`);
+    console.log(`Connected to RabbitMQ. Consuming all events from exchange '${EXCHANGE_NAME}' via queue '${queue}'`);
     
-    channel.consume(QUEUE_NAME, (msg) => {
+    channel.consume(queue, (msg) => {
       if (msg) {
         try {
           const participant = JSON.parse(msg.content.toString());
