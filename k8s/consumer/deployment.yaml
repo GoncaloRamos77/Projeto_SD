@@ -23,6 +23,8 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "3001"
         prometheus.io/path: "/metrics"
+        checksum/configmap: 
+          1cc59185bf574f400e534037149f9ed9e45e7a2ac9c4ff2884489529d53be53a
     spec:
       affinity:
         podAntiAffinity:
@@ -39,7 +41,8 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
       - name: consumer
-        image: projetosysd/race-consumer:04b5da115db450db53d1015a0c7afeada9d9d70a
+        image: 
+          projetosysd/race-consumer:04b5da115db450db53d1015a0c7afeada9d9d70a
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

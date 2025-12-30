@@ -20,7 +20,8 @@ spec:
       labels:
         app: producer
       annotations:
-        checksum/configmap: 14ae8ff9c8fad2269c980c0752fe0bd1a38c6de5f1e8ee15095ce6bf5a4ae3aa
+        checksum/configmap: 
+          18d0e5955041ff1f874011043e412fefe3edecf98cab0a3e727a884d59cc0409
         prometheus.io/scrape: "true"
         prometheus.io/port: "3002"
         prometheus.io/path: "/metrics"
@@ -40,7 +41,8 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
       - name: producer
-        image: projetosysd/race-producer:04b5da115db450db53d1015a0c7afeada9d9d70a
+        image: 
+          projetosysd/race-producer:04b5da115db450db53d1015a0c7afeada9d9d70a
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
