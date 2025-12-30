@@ -39,7 +39,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
       - name: consumer
-        image: projetosysd/race-consumer:cc66966ae3ae54ca8cb42f0e15249bcf35793a36
+        image: projetosysd/race-consumer:04b5da115db450db53d1015a0c7afeada9d9d70a
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

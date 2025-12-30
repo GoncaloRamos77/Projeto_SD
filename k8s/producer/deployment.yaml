@@ -40,7 +40,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
       - name: producer
-        image: projetosysd/race-producer:4965b7d73d306841d162f1d2de5c9a1075b6ec1b
+        image: projetosysd/race-producer:04b5da115db450db53d1015a0c7afeada9d9d70a
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
