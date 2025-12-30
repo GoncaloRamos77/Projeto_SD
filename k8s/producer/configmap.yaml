@@ -4,7 +4,6 @@ metadata:
   name: producer-config
   namespace: default
 data:
-  RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
   NUM_PARTICIPANTS: "10"
   NUM_RACES: "4"
   PUBLISH_INTERVAL: "500"

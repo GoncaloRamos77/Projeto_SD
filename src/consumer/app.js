@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3001;
 // Fanout exchange name shared with producer. Each consumer replica gets its own
 // queue bound to this exchange to receive all messages (not load-balanced).
 const EXCHANGE_NAME = process.env.RACE_EXCHANGE || 'race_events';
+const API_TOKEN = process.env.RACE_API_TOKEN;
 
 // Races are stored in-memory. If the producer is reconfigured (e.g. NUM_RACES reduced),
 // old race IDs may linger here and still show up in the UI. To avoid that, we expire
@@ -62,6 +63,13 @@ app.use((req, res, next) => {
     end({ method: req.method, endpoint });
   });
   next();
+});
+// Simple shared-secret auth. Skip health/metrics to keep probes and scraping working.
+app.use((req, res, next) => {
+  if (!API_TOKEN || req.path === '/health' || req.path === '/metrics') return next();
+  const provided = req.headers['x-race-token'];
+  if (provided === API_TOKEN) return next();
+  return res.status(401).json({ error: 'Unauthorized' });
 });
 
 async function startConsumer() {

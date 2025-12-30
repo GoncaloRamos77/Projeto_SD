@@ -49,6 +49,8 @@ spec:
         envFrom:
         - configMapRef:
             name: producer-config
+        - secretRef:
+            name: race-secrets
         resources:
           requests:
             memory: "256Mi"

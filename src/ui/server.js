@@ -5,6 +5,7 @@ const promClient = require('prom-client');
 
 const PORT = process.env.PORT || 3000;
 const CONSUMER_API_URL = process.env.CONSUMER_API_URL || 'http://localhost:3001';
+const API_TOKEN = process.env.RACE_API_TOKEN;
 
 const app = express();
 
@@ -63,7 +64,8 @@ app.get('/api/*', async (req, res) => {
   const end = proxyLatency.startTimer();
   try {
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch(url);
+    const headers = API_TOKEN ? { 'x-race-token': API_TOKEN } : {};
+    const response = await fetch(url, { headers });
     const data = await response.json();
     end();
     res.json(data);
