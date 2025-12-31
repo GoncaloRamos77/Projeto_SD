@@ -9,6 +9,11 @@ const PORT = process.env.PORT || 3001;
 // queue bound to this exchange to receive all messages (not load-balanced).
 const EXCHANGE_NAME = process.env.RACE_EXCHANGE || 'race_events';
 const API_TOKEN = process.env.RACE_API_TOKEN;
+const ALLOWED_PRODUCERS = (process.env.ALLOWED_PRODUCER_IDS || '')
+  .split(',')
+  .map(p => p.trim())
+  .filter(Boolean);
+const allowAllProducers = ALLOWED_PRODUCERS.length === 0;
 
 // Races are stored in-memory. If the producer is reconfigured (e.g. NUM_RACES reduced),
 // old race IDs may linger here and still show up in the UI. To avoid that, we expire
@@ -89,6 +94,12 @@ async function startConsumer() {
       if (msg) {
         try {
           const participant = JSON.parse(msg.content.toString());
+          const producerId = participant.producerId || 'unknown';
+          if (!allowAllProducers && !ALLOWED_PRODUCERS.includes(producerId)) {
+            // Drop events from other producers to avoid UI conflicts.
+            channel.ack(msg);
+            return;
+          }
           
           if (!raceData.has(participant.raceId)) {
             raceData.set(participant.raceId, new Map());

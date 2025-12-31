@@ -10,7 +10,8 @@ const MIN_PARTICIPANTS = parseInt(process.env.MIN_PARTICIPANTS || NUM_PARTICIPAN
 const MAX_PARTICIPANTS = parseInt(process.env.MAX_PARTICIPANTS || NUM_PARTICIPANTS);
 const VARIABLE_PARTICIPANTS = process.env.VARIABLE_PARTICIPANTS === 'true';
 const HEALTH_PORT = parseInt(process.env.PORT || '3002');
-const PRODUCER_SHARD_SOURCE = process.env.PRODUCER_SHARD || process.env.HOSTNAME || 'producer';
+const PRODUCER_ID = process.env.PRODUCER_ID || process.env.HOSTNAME || `producer-${process.pid}`;
+const PRODUCER_SHARD_SOURCE = process.env.PRODUCER_SHARD || PRODUCER_ID;
 
 // Use a fanout exchange so every consumer replica receives a full copy of the
 // stream. With a single queue and multiple consumers, RabbitMQ load-balances
@@ -199,6 +200,7 @@ function generateParticipant(id, raceId) {
   return {
     id: `race-${raceId}-p-${id}`,
     raceId,
+    producerId: PRODUCER_ID,
     name: `${name} #${id}`,
     profile: profile.type,
     skill: profile.skill,
@@ -261,6 +263,7 @@ function updateParticipant(participant) {
     participant.lon = finalPosition[1];
   }
 
+  participant.producerId = PRODUCER_ID;
   return participant;
 }
 

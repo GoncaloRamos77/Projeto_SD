@@ -48,6 +48,11 @@ spec:
         - name: http
           containerPort: 3002
           protocol: TCP
+        env:
+        - name: PRODUCER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         envFrom:
         - configMapRef:
             name: producer-config
