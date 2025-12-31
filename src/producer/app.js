@@ -10,6 +10,7 @@ const MIN_PARTICIPANTS = parseInt(process.env.MIN_PARTICIPANTS || NUM_PARTICIPAN
 const MAX_PARTICIPANTS = parseInt(process.env.MAX_PARTICIPANTS || NUM_PARTICIPANTS);
 const VARIABLE_PARTICIPANTS = process.env.VARIABLE_PARTICIPANTS === 'true';
 const HEALTH_PORT = parseInt(process.env.PORT || '3002');
+const PRODUCER_SHARD_SOURCE = process.env.PRODUCER_SHARD || process.env.HOSTNAME || 'producer';
 
 // Use a fanout exchange so every consumer replica receives a full copy of the
 // stream. With a single queue and multiple consumers, RabbitMQ load-balances
@@ -51,6 +52,23 @@ const publishLatency = new promClient.Histogram({
   buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
   registers: [register]
 });
+
+function hashStringToInt(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(i);
+    hash |= 0; // Convert to 32-bit int
+  }
+  return Math.abs(hash);
+}
+
+const SHARD_ID = hashStringToInt(PRODUCER_SHARD_SOURCE);
+const explicitRaceOffset = process.env.RACE_ID_OFFSET !== undefined
+  ? parseInt(process.env.RACE_ID_OFFSET, 10)
+  : undefined;
+const RACE_ID_OFFSET = Number.isFinite(explicitRaceOffset)
+  ? explicitRaceOffset
+  : (SHARD_ID % 10000) * 1000;
 
 // Simple HTTP health endpoint for Kubernetes probes
 const app = express();
@@ -305,10 +323,13 @@ async function runSimulation() {
   console.log(`Participants per race: ${VARIABLE_PARTICIPANTS ? `${MIN_PARTICIPANTS}-${MAX_PARTICIPANTS} (variable)` : NUM_PARTICIPANTS}`);
   console.log(`Publish interval: ${PUBLISH_INTERVAL}ms`);
   console.log(`Track: Autódromo do Estoril (${TRACK_TOTAL_DISTANCE}m)`);
+  console.log(`Producer shard source: ${PRODUCER_SHARD_SOURCE}`);
+  console.log(`Computed shard ID: ${SHARD_ID}`);
+  console.log(`Race ID offset: ${RACE_ID_OFFSET}`);
   console.log('================================\n');
   
-  for (let raceId = 0; raceId < NUM_RACES; raceId++) {
-    races.push(initializeRace(raceId));
+  for (let raceIndex = 0; raceIndex < NUM_RACES; raceIndex++) {
+    races.push(initializeRace(RACE_ID_OFFSET + raceIndex));
   }
 
   // Loop de Simulação
