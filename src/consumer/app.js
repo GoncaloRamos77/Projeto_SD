@@ -19,6 +19,7 @@ const allowAllProducers = ALLOWED_PRODUCERS.length === 0;
 // old race IDs may linger here and still show up in the UI. To avoid that, we expire
 // races that haven't received updates recently.
 const RACE_TTL_MS = parseInt(process.env.RACE_TTL_MS || '15000');
+const PRODUCER_FAILOVER_MS = parseInt(process.env.PRODUCER_FAILOVER_MS || '10000');
 
 const app = express();
 app.use(cors());
@@ -55,9 +56,21 @@ const racesTracked = new promClient.Gauge({
   help: 'Number of races currently being tracked',
   registers: [register]
 });
+const producerSwitches = new promClient.Counter({
+  name: 'race_active_producer_switch_total',
+  help: 'Number of times the consumer switched the active producer',
+  registers: [register]
+});
+const producerActiveGauge = new promClient.Gauge({
+  name: 'race_active_producer_present',
+  help: 'Whether a producer is currently selected (1=yes, 0=no)',
+  registers: [register]
+});
 
 const raceData = new Map();
 const raceLastSeen = new Map();
+let activeProducerId = null;
+let activeProducerLastSeen = 0;
 
 // Middleware to track API metrics
 app.use((req, res, next) => {
@@ -96,10 +109,31 @@ async function startConsumer() {
           const participant = JSON.parse(msg.content.toString());
           const producerId = participant.producerId || 'unknown';
           if (!allowAllProducers && !ALLOWED_PRODUCERS.includes(producerId)) {
-            // Drop events from other producers to avoid UI conflicts.
             channel.ack(msg);
             return;
           }
+
+          const now = Date.now();
+          if (activeProducerId && producerId !== activeProducerId) {
+            const silence = now - activeProducerLastSeen;
+            if (silence < PRODUCER_FAILOVER_MS) {
+              channel.ack(msg);
+              return;
+            }
+            console.warn(`Failing over from producer ${activeProducerId} to ${producerId} after ${silence}ms of inactivity.`);
+            producerSwitches.inc();
+            raceData.clear();
+            raceLastSeen.clear();
+            activeProducerId = producerId;
+            producerActiveGauge.set(1);
+          }
+
+          if (!activeProducerId) {
+            activeProducerId = producerId;
+            producerActiveGauge.set(1);
+            console.log(`Selected initial active producer: ${producerId}`);
+          }
+          activeProducerLastSeen = now;
           
           if (!raceData.has(participant.raceId)) {
             raceData.set(participant.raceId, new Map());
@@ -126,6 +160,9 @@ async function startConsumer() {
     
     connection.on('close', () => {
       console.log('RabbitMQ connection closed. Reconnecting...');
+      activeProducerId = null;
+      activeProducerLastSeen = 0;
+      producerActiveGauge.set(0);
       setTimeout(startConsumer, 5000);
     });
     
@@ -218,6 +255,13 @@ setInterval(() => {
       raceLastSeen.delete(raceId);
       raceData.delete(raceId);
     }
+  }
+  if (activeProducerId && (now - activeProducerLastSeen) > PRODUCER_FAILOVER_MS) {
+    console.warn(`Active producer ${activeProducerId} timed out after ${now - activeProducerLastSeen}ms. Waiting for new producer.`);
+    activeProducerId = null;
+    producerActiveGauge.set(0);
+    raceData.clear();
+    raceLastSeen.clear();
   }
 }, Math.min(5000, Math.max(1000, Math.floor(RACE_TTL_MS / 3))));
 
