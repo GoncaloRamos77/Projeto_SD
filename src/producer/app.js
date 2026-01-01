@@ -2,7 +2,7 @@ const amqp = require('amqplib');
 const express = require('express');
 const promClient = require('prom-client');
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq:5672';
 const NUM_PARTICIPANTS = parseInt(process.env.NUM_PARTICIPANTS || '10');
 const NUM_RACES = parseInt(process.env.NUM_RACES || '1');
 const PUBLISH_INTERVAL = parseInt(process.env.PUBLISH_INTERVAL || '1000');

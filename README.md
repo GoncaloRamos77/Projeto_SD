@@ -5,6 +5,7 @@
 - Probes (`/health`) and metrics (`/metrics`) stay unauthenticated for liveness and Prometheus scraping.
 - Each producer pod identifies itself via `PRODUCER_ID` (default = pod name) and tags every event. Consumers can restrict which producers they accept with `ALLOWED_PRODUCER_IDS` (comma-separated).
 - The consumer automatically locks onto the first producer it sees and ignores all other producers until it has been silent for `PRODUCER_FAILOVER_MS` (default 10s), ensuring the UI only reflects one race stream at a time.
+- If the secret is not applied yet, services fall back to `amqp://guest:guest@rabbitmq:5672` so the app keeps running in dev, but you should override it by updating `k8s/secrets.yaml`.
 
 How to set your own credentials:
 1) Edit `k8s/secrets.yaml` and change `RABBITMQ_URL` and `RACE_API_TOKEN`.

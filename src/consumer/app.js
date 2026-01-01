@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const promClient = require('prom-client');
 // Forçar rebuild da imagem
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq:5672';
 const PORT = process.env.PORT || 3001;
 // Fanout exchange name shared with producer. Each consumer replica gets its own
 // queue bound to this exchange to receive all messages (not load-balanced).
