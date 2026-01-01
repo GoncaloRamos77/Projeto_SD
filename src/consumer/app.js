@@ -69,6 +69,7 @@ const producerActiveGauge = new promClient.Gauge({
 
 const raceData = new Map();
 const raceLastSeen = new Map();
+const participantLastSeen = new Map(); // raceId -> Map(participantId -> timestamp)
 let activeProducerId = null;
 let activeProducerLastSeen = 0;
 
@@ -149,7 +150,12 @@ async function startConsumer() {
           
           const race = raceData.get(participant.raceId);
           race.set(participant.id, participant);
-          raceLastSeen.set(participant.raceId, Date.now());
+          const nowTimestamp = Date.now();
+          raceLastSeen.set(participant.raceId, nowTimestamp);
+          if (!participantLastSeen.has(participant.raceId)) {
+            participantLastSeen.set(participant.raceId, new Map());
+          }
+          participantLastSeen.get(participant.raceId).set(participant.id, nowTimestamp);
           
           messagesConsumed.inc({ race_id: participant.raceId });
           racesTracked.set(raceData.size);
@@ -197,7 +203,21 @@ app.get('/races', (req, res) => {
   raceData.forEach((participants, raceId) => {
     const lastSeen = raceLastSeen.get(raceId) || 0;
     if (now - lastSeen > RACE_TTL_MS) return;
-
+    const seenMap = participantLastSeen.get(raceId);
+    const participantList = Array.from(participants.values()).filter((participant) => {
+      if (!seenMap) return false;
+      const last = seenMap.get(participant.id) || 0;
+      return now - last <= RACE_TTL_MS;
+    });
+    if (seenMap) {
+      // Clean up stale entries
+      for (const [participantId, last] of seenMap.entries()) {
+        if (now - last > RACE_TTL_MS) {
+          seenMap.delete(participantId);
+          participants.delete(participantId);
+        }
+      }
+    }
     const participantList = Array.from(participants.values());
     races.push({
       id: raceId,
@@ -220,7 +240,12 @@ app.get('/races/:raceId', (req, res) => {
     return res.status(404).json({ error: 'Race not found' });
   }
   
-  const participants = Array.from(raceData.get(raceId).values());
+  const participants = Array.from(raceData.get(raceId).values()).filter((participant) => {
+    const seenMap = participantLastSeen.get(raceId);
+    if (!seenMap) return false;
+    const last = seenMap.get(participant.id) || 0;
+    return now - last <= RACE_TTL_MS;
+  });
   res.json({
     id: raceId,
     participants,
@@ -238,6 +263,12 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
   }
   
   const participants = Array.from(raceData.get(raceId).values())
+    .filter((participant) => {
+      const seenMap = participantLastSeen.get(raceId);
+      if (!seenMap) return false;
+      const last = seenMap.get(participant.id) || 0;
+      return now - last <= RACE_TTL_MS;
+    })
     .sort((a, b) => a.position - b.position);
   
   res.json({
@@ -262,6 +293,7 @@ setInterval(() => {
     if (now - lastSeen > RACE_TTL_MS) {
       raceLastSeen.delete(raceId);
       raceData.delete(raceId);
+      participantLastSeen.delete(raceId);
     }
   }
   if (activeProducerId && (now - activeProducerLastSeen) > PRODUCER_FAILOVER_MS) {
@@ -270,6 +302,7 @@ setInterval(() => {
     producerActiveGauge.set(0);
     raceData.clear();
     raceLastSeen.clear();
+    participantLastSeen.clear();
   }
 }, Math.min(5000, Math.max(1000, Math.floor(RACE_TTL_MS / 3))));
 
