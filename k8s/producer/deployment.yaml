@@ -21,7 +21,7 @@ spec:
         app: producer
       annotations:
         checksum/configmap: 
-          097ca7b6ba5ad8c32ee03e2c8d01f836c9022372296d86d7885c71ec6ff31598
+          8962637f67470df7770e720dbc2dfe26816c3c1157c369803d12cfaad86f1dc3
         prometheus.io/scrape: "true"
         prometheus.io/port: "3002"
         prometheus.io/path: "/metrics"

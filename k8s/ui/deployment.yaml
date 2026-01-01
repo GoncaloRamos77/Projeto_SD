@@ -23,6 +23,8 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "3000"
         prometheus.io/path: "/metrics"
+        checksum/configmap: 
+          aad293eb4c11d9650c3cc7becee196133943b0c8ec691ee719a11e7c64bfeaa1
     spec:
       affinity:
         podAntiAffinity:

@@ -16,7 +16,7 @@ spec:
         app: rabbitmq
       annotations:
         checksum/configmap: 
-          45c8da2be4f289c119f699cd17e304716fb447b8827cc7e6dfcfc2464b41adad
+          de447c001b9e04bd7295224f7394368d6767e9c5ae8ff67d2deb362fc5fd8648
     spec:
       containers:
       - name: rabbitmq
