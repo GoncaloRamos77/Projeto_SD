@@ -95,7 +95,7 @@ app.listen(HEALTH_PORT, () => {
 // --- DADOS DO AUTÓDROMO DO ESTORIL ---
 
 // Comprimento oficial da pista em metros
-const TRACK_TOTAL_DISTANCE = 4183; // 4182.72m
+const TRACK_TOTAL_DISTANCE = 500; // 4182.72m
 
 // Um array simplificado de coordenadas [lat, lon] que define o percurso da pista.
 // Para mais precisão, este array devia ter centenas de pontos de um ficheiro GPX.
