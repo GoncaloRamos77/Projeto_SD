@@ -7,3 +7,4 @@ data:
   PORT: "3001"
   ALLOWED_PRODUCER_IDS: ""
   PRODUCER_FAILOVER_MS: "10000"
+#apaz

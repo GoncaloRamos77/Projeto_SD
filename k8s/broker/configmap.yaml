@@ -8,3 +8,4 @@ data:
     loopback_users.guest = false
     listeners.tcp.default = 5672
     management.tcp.port = 15672
+#apaz
