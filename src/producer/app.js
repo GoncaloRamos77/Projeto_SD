@@ -373,6 +373,12 @@ async function runSimulation() {
         const finishedRaceId = race.id;
         console.log(`\n[Race ${finishedRaceId}] FINISHED! Winner: ${winner.name} (Profile: ${winner.profile})`);
         console.log(`[Race ${finishedRaceId}] Top 3: 1st ${race.participants[0].name}, 2nd ${race.participants[1]?.name || 'N/A'}, 3rd ${race.participants[2]?.name || 'N/A'}\n`);
+        publishEvent({
+          raceId: finishedRaceId,
+          eventType: 'reset',
+          timestamp: Date.now(),
+          producerId: PRODUCER_ID
+        });
         
         // Reiniciar corrida após 5 segundos
         setTimeout(() => {

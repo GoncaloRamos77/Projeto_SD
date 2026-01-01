@@ -113,6 +113,14 @@ async function startConsumer() {
             return;
           }
 
+          if (participant.eventType === 'reset') {
+            raceData.delete(participant.raceId);
+            raceLastSeen.delete(participant.raceId);
+            console.log(`Cleared race ${participant.raceId} on reset event from ${producerId}`);
+            channel.ack(msg);
+            return;
+          }
+
           const now = Date.now();
           if (activeProducerId && producerId !== activeProducerId) {
             const silence = now - activeProducerLastSeen;
