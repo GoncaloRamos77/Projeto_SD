@@ -70,6 +70,11 @@ const explicitRaceOffset = process.env.RACE_ID_OFFSET !== undefined
 const RACE_ID_OFFSET = Number.isFinite(explicitRaceOffset)
   ? explicitRaceOffset
   : (SHARD_ID % 10000) * 1000;
+let nextRaceId = RACE_ID_OFFSET;
+
+function getNextRaceId() {
+  return nextRaceId++;
+}
 
 // Simple HTTP health endpoint for Kubernetes probes
 const app = express();
@@ -304,7 +309,7 @@ function getRandomParticipantCount() {
   return NUM_PARTICIPANTS;
 }
 
-function initializeRace(raceId) {
+function initializeRace(raceId = getNextRaceId()) {
   const numParticipants = getRandomParticipantCount();
   const participants = [];
   
@@ -332,7 +337,7 @@ async function runSimulation() {
   console.log('================================\n');
   
   for (let raceIndex = 0; raceIndex < NUM_RACES; raceIndex++) {
-    races.push(initializeRace(RACE_ID_OFFSET + raceIndex));
+    races.push(initializeRace());
   }
 
   // Loop de Simulação
@@ -365,16 +370,18 @@ async function runSimulation() {
       if (allFinished) {
         race.active = false;
         const winner = race.participants[0];
-        console.log(`\n[Race ${race.id}] FINISHED! Winner: ${winner.name} (Profile: ${winner.profile})`);
-        console.log(`[Race ${race.id}] Top 3: 1st ${race.participants[0].name}, 2nd ${race.participants[1]?.name || 'N/A'}, 3rd ${race.participants[2]?.name || 'N/A'}\n`);
+        const finishedRaceId = race.id;
+        console.log(`\n[Race ${finishedRaceId}] FINISHED! Winner: ${winner.name} (Profile: ${winner.profile})`);
+        console.log(`[Race ${finishedRaceId}] Top 3: 1st ${race.participants[0].name}, 2nd ${race.participants[1]?.name || 'N/A'}, 3rd ${race.participants[2]?.name || 'N/A'}\n`);
         
         // Reiniciar corrida após 5 segundos
         setTimeout(() => {
-          const newRace = initializeRace(race.id);
+          const newRace = initializeRace();
+          race.id = newRace.id;
           race.participants = newRace.participants;
           race.numParticipants = newRace.numParticipants;
           race.active = true;
-          console.log(`[Race ${race.id}] Restarted\n`);
+          console.log(`[Race ${finishedRaceId}] Restarted as new Race ${race.id}\n`);
         }, 5000);
       } else {
         activeRaces++;
