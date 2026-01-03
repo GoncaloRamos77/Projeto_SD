@@ -46,6 +46,37 @@ app.use((req, res, next) => {
   next();
 });
 
+// Register API proxy BEFORE static assets so /api/* is handled by this route
+app.get('/api/*', async (req, res) => {
+  try {
+    const apiPath = req.originalUrl.replace(/^\/api/, '') || '/';
+    const target = `${CONSUMER_API_URL.replace(/\/$/, '')}${apiPath}`;
+
+    const fetch = (await import('node-fetch')).default;
+    const headers = {};
+    if (API_TOKEN) headers['x-race-token'] = API_TOKEN;
+
+    // Forward method and headers (GET/POST etc.)
+    const response = await fetch(target, { method: req.method, headers });
+
+    const bodyText = await response.text();
+    res.status(response.status);
+
+    if (!bodyText) return res.send(); // empty
+
+    try {
+      const parsed = JSON.parse(bodyText);
+      return res.json(parsed);
+    } catch (err) {
+      return res.send(bodyText); // non-JSON (HTML error pages etc.)
+    }
+  } catch (err) {
+    console.error('API proxy error:', err && err.stack ? err.stack : err);
+    return res.status(502).json({ error: 'Failed to proxy request to consumer' });
+  }
+});
+
+// static middleware should come AFTER proxy
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (req, res) => {
@@ -55,39 +86,6 @@ app.get('/health', (req, res) => {
 app.get('/metrics', async (req, res) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
-});
-
-app.get('/api/*', async (req, res) => {
-  const apiPath = req.path.replace('/api', '');
-  const url = `${CONSUMER_API_URL}${apiPath}${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`;
-
-  const end = proxyLatency.startTimer();
-  try {
-    const fetch = (await import('node-fetch')).default;
-    const headers = API_TOKEN ? { 'x-race-token': API_TOKEN } : {};
-    // forward method and headers (GET is enough for current use, but safe to include)
-    const response = await fetch(url, { method: req.method, headers });
-
-    const bodyText = await response.text();
-    end();
-
-    // Forward status and either parsed JSON or raw text
-    res.status(response.status);
-    if (!bodyText) {
-      return res.send(); // empty body
-    }
-    try {
-      const parsed = JSON.parse(bodyText);
-      return res.json(parsed);
-    } catch (err) {
-      // Not JSON -> return raw text (helps debug HTML error pages)
-      return res.send(bodyText);
-    }
-  } catch (error) {
-    console.error('API proxy error:', error.message);
-    end();
-    res.status(502).json({ error: 'Failed to fetch data from consumer API' });
-  }
 });
 
 app.get('*', (req, res) => {
