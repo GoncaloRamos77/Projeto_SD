@@ -323,13 +323,24 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
 });
 
 app.get('/last-results', (req, res) => {
-  const now = Date.now();
-  // filter recent entries and return most recent first
-  const results = lastRaceResults
-    .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
-    .slice() // clone
-    .sort((a, b) => b.finishedAt - a.finishedAt);
-  res.json(results);
+  try {
+    const now = Date.now();
+
+    // support lastRaceResults implemented as array or Map
+    const list = Array.isArray(lastRaceResults)
+      ? lastRaceResults
+      : (lastRaceResults instanceof Map ? Array.from(lastRaceResults.values()) : []);
+
+    const results = list
+      .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
+      .slice() // clone
+      .sort((a, b) => b.finishedAt - a.finishedAt);
+
+    return res.json(results);
+  } catch (err) {
+    console.error('Error in /last-results handler:', err && err.stack ? err.stack : err);
+    return res.status(500).json([]);
+  }
 });
 
 // Periodic cleanup to prevent unbounded memory growth and stale races in UI
