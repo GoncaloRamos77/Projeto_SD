@@ -52,26 +52,26 @@ app.get('/api/*', async (req, res) => {
     const apiPath = req.originalUrl.replace(/^\/api/, '') || '/';
     const target = `${CONSUMER_API_URL.replace(/\/$/, '')}${apiPath}`;
 
+    console.log(`[proxy] ${req.method} ${req.originalUrl} -> ${target}`);
+
     const fetch = (await import('node-fetch')).default;
     const headers = {};
     if (API_TOKEN) headers['x-race-token'] = API_TOKEN;
 
-    // Forward method and headers (GET/POST etc.)
     const response = await fetch(target, { method: req.method, headers });
-
     const bodyText = await response.text();
+
+    console.log(`[proxy] target response ${response.status} ${response.statusText} for ${target}`);
+
     res.status(response.status);
-
-    if (!bodyText) return res.send(); // empty
-
+    if (!bodyText) return res.send();
     try {
-      const parsed = JSON.parse(bodyText);
-      return res.json(parsed);
+      return res.json(JSON.parse(bodyText));
     } catch (err) {
-      return res.send(bodyText); // non-JSON (HTML error pages etc.)
+      return res.send(bodyText);
     }
   } catch (err) {
-    console.error('API proxy error:', err && err.stack ? err.stack : err);
+    console.error('[proxy] error fetching target:', err && err.stack ? err.stack : err);
     return res.status(502).json({ error: 'Failed to proxy request to consumer' });
   }
 });
