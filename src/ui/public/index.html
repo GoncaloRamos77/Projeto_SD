@@ -338,10 +338,19 @@
         async function fetchLastResults() {
             try {
                 const response = await fetch('/api/last-results');
-                lastResults = await response.json();
-                displayLastResults();
+                const data = await response.json();
+                
+                // Check if response is valid array
+                if (Array.isArray(data)) {
+                    lastResults = data;
+                    displayLastResults();
+                } else {
+                    console.warn('Invalid last results data:', data);
+                    lastResults = [];
+                }
             } catch (error) {
                 console.error('Failed to fetch last results:', error.message);
+                lastResults = [];
             }
         }
         
