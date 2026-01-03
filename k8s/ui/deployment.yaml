@@ -41,7 +41,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
       - name: ui
-        image: projetosysd/race-ui:834ff4ba905427687ca900d2fe0821cb2bf61c7f
+        image: projetosysd/race-ui:7c825898f5bd6509ce611d1f7feab35944ece907
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
