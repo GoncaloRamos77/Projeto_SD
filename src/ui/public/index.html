@@ -180,6 +180,60 @@
             border-radius: 10px;
             margin-bottom: 20px;
         }
+        
+        .last-results {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .last-results h3 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .last-results .race-result {
+            background: #f1f3f5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #868e96;
+        }
+        
+        .last-results .race-result h4 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .last-results .finished-time {
+            font-size: 12px;
+            color: #868e96;
+            font-weight: normal;
+        }
+        
+        .last-results .participant {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+        }
+        
+        .last-results .participant-name {
+            font-size: 16px;
+        }
+        
+        .last-results .participant-stats {
+            font-size: 13px;
+        }
         #map {
             height: 400px;
             width: 100%;
@@ -202,6 +256,7 @@
         <div id="error" class="error" style="display: none;"></div>
         <div id="loading" class="loading">Loading race data...</div>
         <div id="leaderboard" class="leaderboard" style="display: none;"></div>
+        <div id="lastResults" class="last-results" style="display: none;"></div>
     </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -213,6 +268,7 @@
         let updateInterval;
         let map;
         let participantsLayer;
+        let lastResults = [];
 
         // --- Coordenadas do Autódromo do Estoril ---
         const TRACK_CENTER_LAT = 38.750; // Centro
@@ -277,6 +333,85 @@
             const select = document.getElementById('raceSelect');
             currentRaceId = parseInt(select.value);
             updateLeaderboard();
+        }
+        
+        async function fetchLastResults() {
+            try {
+                const response = await fetch('/api/last-results');
+                lastResults = await response.json();
+                displayLastResults();
+            } catch (error) {
+                console.error('Failed to fetch last results:', error.message);
+            }
+        }
+        
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+            
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            
+            return date.toLocaleString();
+        }
+        
+        function displayLastResults() {
+            const container = document.getElementById('lastResults');
+            
+            if (!lastResults || lastResults.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            
+            // Show only the most recent 3 results
+            const recentResults = lastResults.slice(0, 3);
+            
+            container.innerHTML = `
+                <h3>🏆 Last Race Results</h3>
+                ${recentResults.map(result => `
+                    <div class="race-result">
+                        <h4>
+                            Race ${result.raceId} Final Standings
+                            <span class="finished-time">${formatTimestamp(result.finishedAt)}</span>
+                        </h4>
+                        ${result.leaderboard.slice(0, 5).map(p => `
+                            <div class="participant">
+                                <div class="position ${p.position === 1 ? 'first' : p.position === 2 ? 'second' : p.position === 3 ? 'third' : ''}">
+                                    ${p.position}
+                                </div>
+                                <div class="participant-info">
+                                    <div class="participant-name">${p.name}</div>
+                                    <div class="participant-stats">
+                                        <div class="stat">
+                                            <span class="stat-label">Distance:</span>
+                                            <span>${p.distance.toFixed(2)}m</span>
+                                        </div>
+                                        <div class="stat">
+                                            <span class="stat-label">Final Speed:</span>
+                                            <span>${p.speed.toFixed(2)} km/h</span>
+                                        </div>
+                                        <div class="stat">
+                                            <span class="stat-label">Profile:</span>
+                                            <span>${p.profile}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="status finished">
+                                    FINISHED
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${result.leaderboard.length > 5 ? `<p style="text-align: center; color: #868e96; margin-top: 10px; font-size: 14px;">... and ${result.leaderboard.length - 5} more participants</p>` : ''}
+                    </div>
+                `).join('')}
+            `;
         }
 
         async function updateLeaderboard() {
@@ -360,10 +495,12 @@
         // --- Inicializar ---
         initMap(); // Chamar a nova função
         fetchRaces();
+        fetchLastResults();
         
         // Atualizações mais frequentes para reduzir latência percebida
         setInterval(updateLeaderboard, 500);
         setInterval(fetchRaces, 5000);
+        setInterval(fetchLastResults, 10000); // Update last results every 10 seconds
     </script>
 </body>
 </html>
