@@ -59,20 +59,34 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/api/*', async (req, res) => {
   const apiPath = req.path.replace('/api', '');
-  const url = `${CONSUMER_API_URL}${apiPath}`;
-  
+  const url = `${CONSUMER_API_URL}${apiPath}${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`;
+
   const end = proxyLatency.startTimer();
   try {
     const fetch = (await import('node-fetch')).default;
     const headers = API_TOKEN ? { 'x-race-token': API_TOKEN } : {};
-    const response = await fetch(url, { headers });
-    const data = await response.json();
+    // forward method and headers (GET is enough for current use, but safe to include)
+    const response = await fetch(url, { method: req.method, headers });
+
+    const bodyText = await response.text();
     end();
-    res.json(data);
+
+    // Forward status and either parsed JSON or raw text
+    res.status(response.status);
+    if (!bodyText) {
+      return res.send(); // empty body
+    }
+    try {
+      const parsed = JSON.parse(bodyText);
+      return res.json(parsed);
+    } catch (err) {
+      // Not JSON -> return raw text (helps debug HTML error pages)
+      return res.send(bodyText);
+    }
   } catch (error) {
     console.error('API proxy error:', error.message);
     end();
-    res.status(500).json({ error: 'Failed to fetch data from consumer API' });
+    res.status(502).json({ error: 'Failed to fetch data from consumer API' });
   }
 });
 

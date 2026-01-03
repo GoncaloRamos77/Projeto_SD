@@ -338,19 +338,26 @@
         async function fetchLastResults() {
             try {
                 const response = await fetch('/api/last-results');
+                if (!response.ok) {
+                    const errText = await response.text().catch(() => null);
+                    console.warn('Failed to fetch last results', response.status, errText);
+                    lastResults = [];
+                    displayLastResults();
+                    return;
+                }
                 const data = await response.json();
-                
-                // Check if response is valid array
                 if (Array.isArray(data)) {
                     lastResults = data;
                     displayLastResults();
                 } else {
                     console.warn('Invalid last results data:', data);
                     lastResults = [];
+                    displayLastResults();
                 }
             } catch (error) {
                 console.error('Failed to fetch last results:', error.message);
                 lastResults = [];
+                displayLastResults();
             }
         }
         
@@ -426,8 +433,11 @@
         async function updateLeaderboard() {
             try {
                 const response = await fetch(`/api/races/${currentRaceId}/leaderboard`);
+                if (!response.ok) {
+                    const errText = await response.text().catch(() => null);
+                    throw new Error(`API returned ${response.status}: ${errText || 'no body'}`);
+                }
                 const data = await response.json();
-                
                 if (!data || !data.leaderboard || !Array.isArray(data.leaderboard)) {
                     console.warn('Invalid leaderboard data received:', data);
                     return;
