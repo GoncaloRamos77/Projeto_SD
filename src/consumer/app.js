@@ -117,46 +117,50 @@ async function startConsumer() {
           }
 
           if (participant.eventType === 'reset') {
-            // Build final leaderboard snapshot if we have data (only on race finish)
-            if (raceData.has(participant.raceId)) {
-              const finalParticipants = Array.from(raceData.get(participant.raceId).values())
-                .sort((a, b) => a.position - b.position)
-                .map(p => ({
-                  position: p.position,
-                  name: p.name,
-                  distance: p.distance,
-                  speed: p.speed,
-                  status: p.status,
-                  profile: p.profile,
-                  totalLaps: p.totalLaps
-                }));
+            try {
+              if (raceData.has(participant.raceId)) {
+                const finalParticipants = Array.from(raceData.get(participant.raceId).values())
+                  .sort((a, b) => a.position - b.position)
+                  .map(p => ({
+                    position: p.position,
+                    name: p.name,
+                    distance: p.distance,
+                    speed: p.speed,
+                    status: p.status,
+                    profile: p.profile,
+                    totalLaps: p.totalLaps
+                  }));
 
-              // remove any previous entry for the same raceId, then push newest on top
-              for (let i = lastRaceResults.length - 1; i >= 0; i--) {
-                if (String(lastRaceResults[i].raceId) === String(participant.raceId)) {
-                  lastRaceResults.splice(i, 1);
+                // remove any previous entry for the same raceId
+                for (let i = lastRaceResults.length - 1; i >= 0; i--) {
+                  if (String(lastRaceResults[i].raceId) === String(participant.raceId)) {
+                    lastRaceResults.splice(i, 1);
+                  }
                 }
+
+                lastRaceResults.push({
+                  raceId: participant.raceId,
+                  finishedAt: Date.now(),
+                  leaderboard: finalParticipants
+                });
+
+                console.log(`[last-results] stored final results for race ${participant.raceId} (participants=${finalParticipants.length})`);
+
+                // mark existing in-memory participants as finished so UI still shows the race
+                const race = raceData.get(participant.raceId);
+                const nowTs = Date.now();
+                for (const p of race.values()) p.status = 'finished';
+                raceLastSeen.set(participant.raceId, nowTs);
+                console.log(`[last-results] marked race ${participant.raceId} finished; kept in-memory data for TTL`);
+              } else {
+                console.log(`[last-results] reset received for race ${participant.raceId} but no in-memory data available`);
               }
-              lastRaceResults.push({
-                raceId: participant.raceId,
-                finishedAt: Date.now(),
-                leaderboard: finalParticipants
-              });
-
-              console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
+            } catch (e) {
+              console.error('[last-results] error storing final results:', e && e.stack ? e.stack : e);
+            } finally {
+              channel.ack(msg);
+              return;
             }
-
-            // Optionally mark in-memory participants as finished so active endpoints still return the race
-            if (raceData.has(participant.raceId)) {
-              const race = raceData.get(participant.raceId);
-              const nowTs = Date.now();
-              for (const p of race.values()) p.status = 'finished';
-              raceLastSeen.set(participant.raceId, nowTs);
-              console.log(`Marked race ${participant.raceId} as finished (kept data for TTL)`);
-            }
-
-            channel.ack(msg);
-            return;
           }
 
           const now = Date.now();
@@ -238,19 +242,31 @@ app.get('/last-results', (req, res) => {
   try {
     const now = Date.now();
 
-    // lastRaceResults expected to be an array of { raceId, finishedAt, leaderboard }
+    // lastRaceResults is an array of { raceId, finishedAt, leaderboard }
     const list = Array.isArray(lastRaceResults) ? lastRaceResults : (lastRaceResults instanceof Map ? Array.from(lastRaceResults.values()) : []);
 
+    // Only return entries that have finishedAt (finished races) and are within TTL
     const results = list
-      .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
-      .slice() // clone
-      .sort((a, b) => b.finishedAt - a.finishedAt);
+      .filter(r => r && (typeof r.finishedAt === 'number') && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
+      .slice() // clone before sorting
+      .sort((a, b) => b.finishedAt - a.finishedAt)
+      .map(r => ({
+        raceId: r.raceId,
+        finishedAt: r.finishedAt,
+        leaderboard: Array.isArray(r.leaderboard) ? r.leaderboard : []
+      }));
 
-    return res.json(results);
+    // Always return 200 with JSON array (empty if none)
+    return res.status(200).json(results);
   } catch (err) {
     console.error('Error in /last-results handler:', err && err.stack ? err.stack : err);
-    return res.status(500).json([]);
+    return res.status(200).json([]);
   }
+});
+
+// debug route to check last-results presence quickly (optional)
+app.get('/__debug/last-results', (req, res) => {
+  return res.status(200).json({ stored: lastRaceResults.length, sample: lastRaceResults.slice(-3) });
 });
 
 app.get('/races', (req, res) => {
