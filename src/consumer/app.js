@@ -116,37 +116,49 @@ async function startConsumer() {
             return;
           }
 
-          if (participant.eventType === 'reset') {
-            // Store final results before clearing
-            if (raceData.has(participant.raceId)) {
-              const finalParticipants = Array.from(raceData.get(participant.raceId).values())
-                .sort((a, b) => a.position - b.position)
-                .map(p => ({
-                  position: p.position,
-                  name: p.name,
-                  distance: p.distance,
-                  speed: p.speed,
-                  status: p.status,
-                  profile: p.profile,
-                  totalLaps: p.totalLaps
-                }));
-              
-              lastRaceResults.set(participant.raceId, {
-                raceId: participant.raceId,
-                finishedAt: Date.now(),
-                leaderboard: finalParticipants
-              });
-              
-              console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
-            }
-            
-            raceData.delete(participant.raceId);
-            raceLastSeen.delete(participant.raceId);
-            console.log(`Cleared race ${participant.raceId} on reset event from ${producerId}`);
-            channel.ack(msg);
-            return;
-          }
+          // ...existing code...
+if (participant.eventType === 'reset') {
+  // Store final results before clearing
+  if (raceData.has(participant.raceId)) {
+    const finalParticipants = Array.from(raceData.get(participant.raceId).values())
+      .sort((a, b) => a.position - b.position)
+      .map(p => ({
+        position: p.position,
+        name: p.name,
+        distance: p.distance,
+        speed: p.speed,
+        status: p.status,
+        profile: p.profile,
+        totalLaps: p.totalLaps
+      }));
+    
+    lastRaceResults.set(participant.raceId, {
+      raceId: participant.raceId,
+      finishedAt: Date.now(),
+      leaderboard: finalParticipants
+    });
+    
+    console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
+  }
+  
+  // Instead of deleting the in-memory race data, mark participants as finished
+  // and refresh last-seen so the existing endpoints continue to return this race.
+  if (raceData.has(participant.raceId)) {
+    const race = raceData.get(participant.raceId);
+    for (const p of race.values()) {
+      p.status = 'finished';
+    }
+    const nowTs = Date.now();
+    raceLastSeen.set(participant.raceId, nowTs);
+    // keep participantLastSeen as-is (or update timestamps if you prefer)
+    console.log(`Marked race ${participant.raceId} as finished (kept data for TTL)`);
+  }
 
+  // Do not delete raceData / raceLastSeen here; let the TTL cleanup remove stale entries.
+  channel.ack(msg);
+  return;
+}
+// ...existing code...
           const now = Date.now();
           if (activeProducerId && producerId !== activeProducerId) {
             const silence = now - activeProducerLastSeen;
