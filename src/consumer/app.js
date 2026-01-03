@@ -70,6 +70,8 @@ const producerActiveGauge = new promClient.Gauge({
 const raceData = new Map();
 const raceLastSeen = new Map();
 const participantLastSeen = new Map(); // raceId -> Map(participantId -> timestamp)
+const lastRaceResults = new Map(); // raceId -> { finishedAt, leaderboard }
+const LAST_RESULTS_TTL_MS = parseInt(process.env.LAST_RESULTS_TTL_MS || '3600000'); // 1 hour default
 let activeProducerId = null;
 let activeProducerLastSeen = 0;
 
@@ -115,6 +117,29 @@ async function startConsumer() {
           }
 
           if (participant.eventType === 'reset') {
+            // Store final results before clearing
+            if (raceData.has(participant.raceId)) {
+              const finalParticipants = Array.from(raceData.get(participant.raceId).values())
+                .sort((a, b) => a.position - b.position)
+                .map(p => ({
+                  position: p.position,
+                  name: p.name,
+                  distance: p.distance,
+                  speed: p.speed,
+                  status: p.status,
+                  profile: p.profile,
+                  totalLaps: p.totalLaps
+                }));
+              
+              lastRaceResults.set(participant.raceId, {
+                raceId: participant.raceId,
+                finishedAt: Date.now(),
+                leaderboard: finalParticipants
+              });
+              
+              console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
+            }
+            
             raceData.delete(participant.raceId);
             raceLastSeen.delete(participant.raceId);
             console.log(`Cleared race ${participant.raceId} on reset event from ${producerId}`);
@@ -204,11 +229,6 @@ app.get('/races', (req, res) => {
     const lastSeen = raceLastSeen.get(raceId) || 0;
     if (now - lastSeen > RACE_TTL_MS) return;
     const seenMap = participantLastSeen.get(raceId);
-    const participantList = Array.from(participants.values()).filter((participant) => {
-      if (!seenMap) return false;
-      const last = seenMap.get(participant.id) || 0;
-      return now - last <= RACE_TTL_MS;
-    });
     if (seenMap) {
       // Clean up stale entries
       for (const [participantId, last] of seenMap.entries()) {
@@ -218,7 +238,11 @@ app.get('/races', (req, res) => {
         }
       }
     }
-    const participantList = Array.from(participants.values());
+    const participantList = Array.from(participants.values()).filter((participant) => {
+      if (!seenMap) return false;
+      const last = seenMap.get(participant.id) || 0;
+      return now - last <= RACE_TTL_MS;
+    });
     races.push({
       id: raceId,
       participants: participantList,
@@ -286,6 +310,21 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
   });
 });
 
+app.get('/last-results', (req, res) => {
+  const now = Date.now();
+  const results = [];
+  
+  lastRaceResults.forEach((result, raceId) => {
+    if (now - result.finishedAt <= LAST_RESULTS_TTL_MS) {
+      results.push(result);
+    }
+  });
+  
+  // Sort by most recent first
+  results.sort((a, b) => b.finishedAt - a.finishedAt);
+  res.json(results);
+});
+
 // Periodic cleanup to prevent unbounded memory growth and stale races in UI
 setInterval(() => {
   const now = Date.now();
@@ -294,6 +333,13 @@ setInterval(() => {
       raceLastSeen.delete(raceId);
       raceData.delete(raceId);
       participantLastSeen.delete(raceId);
+    }
+  }
+  // Clean up old last race results
+  for (const [raceId, result] of lastRaceResults.entries()) {
+    if (now - result.finishedAt > LAST_RESULTS_TTL_MS) {
+      lastRaceResults.delete(raceId);
+      console.log(`Cleaned up old race result for race ${raceId}`);
     }
   }
   if (activeProducerId && (now - activeProducerLastSeen) > PRODUCER_FAILOVER_MS) {
