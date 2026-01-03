@@ -233,6 +233,26 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics());
 });
 
+// Add this handler
+app.get('/last-results', (req, res) => {
+  try {
+    const now = Date.now();
+
+    // lastRaceResults expected to be an array of { raceId, finishedAt, leaderboard }
+    const list = Array.isArray(lastRaceResults) ? lastRaceResults : (lastRaceResults instanceof Map ? Array.from(lastRaceResults.values()) : []);
+
+    const results = list
+      .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
+      .slice() // clone
+      .sort((a, b) => b.finishedAt - a.finishedAt);
+
+    return res.json(results);
+  } catch (err) {
+    console.error('Error in /last-results handler:', err && err.stack ? err.stack : err);
+    return res.status(500).json([]);
+  }
+});
+
 app.get('/races', (req, res) => {
   const races = [];
   const now = Date.now();
@@ -320,28 +340,6 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
       lon: p.lon
     }))
   });
-});
-
-app.get('/last-results', (req, res) => {
-  try {
-    const now = Date.now();
-
-    // Assume lastRaceResults is an array of { raceId, finishedAt, leaderboard }
-    const results = lastRaceResults
-      .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
-      .slice() // clone
-      .sort((a, b) => b.finishedAt - a.finishedAt)
-      .map(r => ({
-        raceId: r.raceId,
-        finishedAt: r.finishedAt,
-        leaderboard: r.leaderboard
-      }));
-
-    return res.json(results);
-  } catch (err) {
-    console.error('Error in /last-results handler:', err && err.stack ? err.stack : err);
-    return res.status(500).json([]);
-  }
 });
 
 // Periodic cleanup to prevent unbounded memory growth and stale races in UI
