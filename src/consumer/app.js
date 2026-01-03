@@ -70,7 +70,7 @@ const producerActiveGauge = new promClient.Gauge({
 const raceData = new Map();
 const raceLastSeen = new Map();
 const participantLastSeen = new Map(); // raceId -> Map(participantId -> timestamp)
-const lastRaceResults = new Map(); // raceId -> { finishedAt, leaderboard }
+const lastRaceResults = []; // { raceId, finishedAt, leaderboard }
 const LAST_RESULTS_TTL_MS = parseInt(process.env.LAST_RESULTS_TTL_MS || '3600000'); // 1 hour default
 let activeProducerId = null;
 let activeProducerLastSeen = 0;
@@ -116,9 +116,8 @@ async function startConsumer() {
             return;
           }
 
-          // ...existing code...
-if (participant.eventType === 'reset') {
-  // Store final results before clearing
+          if (participant.eventType === 'reset') {
+  // Build final leaderboard snapshot if we have data
   if (raceData.has(participant.raceId)) {
     const finalParticipants = Array.from(raceData.get(participant.raceId).values())
       .sort((a, b) => a.position - b.position)
@@ -131,34 +130,35 @@ if (participant.eventType === 'reset') {
         profile: p.profile,
         totalLaps: p.totalLaps
       }));
-    
-    lastRaceResults.set(participant.raceId, {
+
+    // remove any previous entry for the same raceId, then push newest on top
+    for (let i = lastRaceResults.length - 1; i >= 0; i--) {
+      if (String(lastRaceResults[i].raceId) === String(participant.raceId)) {
+        lastRaceResults.splice(i, 1);
+      }
+    }
+    lastRaceResults.push({
       raceId: participant.raceId,
       finishedAt: Date.now(),
       leaderboard: finalParticipants
     });
-    
+
     console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
   }
-  
-  // Instead of deleting the in-memory race data, mark participants as finished
-  // and refresh last-seen so the existing endpoints continue to return this race.
+
+  // Mark participants as finished and refresh last-seen so endpoints keep returning this race
   if (raceData.has(participant.raceId)) {
     const race = raceData.get(participant.raceId);
-    for (const p of race.values()) {
-      p.status = 'finished';
-    }
     const nowTs = Date.now();
+    for (const p of race.values()) p.status = 'finished';
     raceLastSeen.set(participant.raceId, nowTs);
-    // keep participantLastSeen as-is (or update timestamps if you prefer)
     console.log(`Marked race ${participant.raceId} as finished (kept data for TTL)`);
   }
 
-  // Do not delete raceData / raceLastSeen here; let the TTL cleanup remove stale entries.
   channel.ack(msg);
   return;
 }
-// ...existing code...
+
           const now = Date.now();
           if (activeProducerId && producerId !== activeProducerId) {
             const silence = now - activeProducerLastSeen;
@@ -324,16 +324,11 @@ app.get('/races/:raceId/leaderboard', (req, res) => {
 
 app.get('/last-results', (req, res) => {
   const now = Date.now();
-  const results = [];
-  
-  lastRaceResults.forEach((result, raceId) => {
-    if (now - result.finishedAt <= LAST_RESULTS_TTL_MS) {
-      results.push(result);
-    }
-  });
-  
-  // Sort by most recent first
-  results.sort((a, b) => b.finishedAt - a.finishedAt);
+  // filter recent entries and return most recent first
+  const results = lastRaceResults
+    .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
+    .slice() // clone
+    .sort((a, b) => b.finishedAt - a.finishedAt);
   res.json(results);
 });
 
@@ -347,20 +342,11 @@ setInterval(() => {
       participantLastSeen.delete(raceId);
     }
   }
-  // Clean up old last race results
-  for (const [raceId, result] of lastRaceResults.entries()) {
-    if (now - result.finishedAt > LAST_RESULTS_TTL_MS) {
-      lastRaceResults.delete(raceId);
-      console.log(`Cleaned up old race result for race ${raceId}`);
+  // Also prune lastRaceResults older than TTL
+  for (let i = lastRaceResults.length - 1; i >= 0; i--) {
+    if (!lastRaceResults[i] || (now - (lastRaceResults[i].finishedAt || 0) > LAST_RESULTS_TTL_MS)) {
+      lastRaceResults.splice(i, 1);
     }
-  }
-  if (activeProducerId && (now - activeProducerLastSeen) > PRODUCER_FAILOVER_MS) {
-    console.warn(`Active producer ${activeProducerId} timed out after ${now - activeProducerLastSeen}ms. Waiting for new producer.`);
-    activeProducerId = null;
-    producerActiveGauge.set(0);
-    raceData.clear();
-    raceLastSeen.clear();
-    participantLastSeen.clear();
   }
 }, Math.min(5000, Math.max(1000, Math.floor(RACE_TTL_MS / 3))));
 
