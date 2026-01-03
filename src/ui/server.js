@@ -8,7 +8,7 @@ const CONSUMER_API_URL = process.env.CONSUMER_API_URL || 'http://localhost:3001'
 const API_TOKEN = process.env.RACE_API_TOKEN;
 
 const app = express();
-
+//teste
 // Prometheus metrics setup
 const register = new promClient.Registry();
 promClient.collectDefaultMetrics({ register });

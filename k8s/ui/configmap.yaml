@@ -6,4 +6,3 @@ metadata:
 data:
   CONSUMER_API_URL: "http://consumer:3001"
   PORT: "3000"
-  #apaz

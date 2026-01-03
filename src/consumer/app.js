@@ -74,7 +74,7 @@ const lastRaceResults = new Map(); // raceId -> { finishedAt, leaderboard }
 const LAST_RESULTS_TTL_MS = parseInt(process.env.LAST_RESULTS_TTL_MS || '3600000'); // 1 hour default
 let activeProducerId = null;
 let activeProducerLastSeen = 0;
-
+//teste
 // Middleware to track API metrics
 app.use((req, res, next) => {
   const end = apiDuration.startTimer();
