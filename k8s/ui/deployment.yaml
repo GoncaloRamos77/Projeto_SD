@@ -24,7 +24,7 @@ spec:
         prometheus.io/port: "3000"
         prometheus.io/path: "/metrics"
         checksum/configmap: 
-          aad293eb4c11d9650c3cc7becee196133943b0c8ec691ee719a11e7c64bfeaa1
+          2ed2235562149e2325c88e6a2c984e0ba0119edf948fc6e26c88906642b2e48d
     spec:
       affinity:
         podAntiAffinity:
