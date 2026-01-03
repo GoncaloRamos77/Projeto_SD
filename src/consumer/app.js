@@ -117,47 +117,47 @@ async function startConsumer() {
           }
 
           if (participant.eventType === 'reset') {
-  // Build final leaderboard snapshot if we have data
-  if (raceData.has(participant.raceId)) {
-    const finalParticipants = Array.from(raceData.get(participant.raceId).values())
-      .sort((a, b) => a.position - b.position)
-      .map(p => ({
-        position: p.position,
-        name: p.name,
-        distance: p.distance,
-        speed: p.speed,
-        status: p.status,
-        profile: p.profile,
-        totalLaps: p.totalLaps
-      }));
+            // Build final leaderboard snapshot if we have data (only on race finish)
+            if (raceData.has(participant.raceId)) {
+              const finalParticipants = Array.from(raceData.get(participant.raceId).values())
+                .sort((a, b) => a.position - b.position)
+                .map(p => ({
+                  position: p.position,
+                  name: p.name,
+                  distance: p.distance,
+                  speed: p.speed,
+                  status: p.status,
+                  profile: p.profile,
+                  totalLaps: p.totalLaps
+                }));
 
-    // remove any previous entry for the same raceId, then push newest on top
-    for (let i = lastRaceResults.length - 1; i >= 0; i--) {
-      if (String(lastRaceResults[i].raceId) === String(participant.raceId)) {
-        lastRaceResults.splice(i, 1);
-      }
-    }
-    lastRaceResults.push({
-      raceId: participant.raceId,
-      finishedAt: Date.now(),
-      leaderboard: finalParticipants
-    });
+              // remove any previous entry for the same raceId, then push newest on top
+              for (let i = lastRaceResults.length - 1; i >= 0; i--) {
+                if (String(lastRaceResults[i].raceId) === String(participant.raceId)) {
+                  lastRaceResults.splice(i, 1);
+                }
+              }
+              lastRaceResults.push({
+                raceId: participant.raceId,
+                finishedAt: Date.now(),
+                leaderboard: finalParticipants
+              });
 
-    console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
-  }
+              console.log(`Stored final results for race ${participant.raceId} with ${finalParticipants.length} participants`);
+            }
 
-  // Mark participants as finished and refresh last-seen so endpoints keep returning this race
-  if (raceData.has(participant.raceId)) {
-    const race = raceData.get(participant.raceId);
-    const nowTs = Date.now();
-    for (const p of race.values()) p.status = 'finished';
-    raceLastSeen.set(participant.raceId, nowTs);
-    console.log(`Marked race ${participant.raceId} as finished (kept data for TTL)`);
-  }
+            // Optionally mark in-memory participants as finished so active endpoints still return the race
+            if (raceData.has(participant.raceId)) {
+              const race = raceData.get(participant.raceId);
+              const nowTs = Date.now();
+              for (const p of race.values()) p.status = 'finished';
+              raceLastSeen.set(participant.raceId, nowTs);
+              console.log(`Marked race ${participant.raceId} as finished (kept data for TTL)`);
+            }
 
-  channel.ack(msg);
-  return;
-}
+            channel.ack(msg);
+            return;
+          }
 
           const now = Date.now();
           if (activeProducerId && producerId !== activeProducerId) {
@@ -326,15 +326,16 @@ app.get('/last-results', (req, res) => {
   try {
     const now = Date.now();
 
-    // support lastRaceResults implemented as array or Map
-    const list = Array.isArray(lastRaceResults)
-      ? lastRaceResults
-      : (lastRaceResults instanceof Map ? Array.from(lastRaceResults.values()) : []);
-
-    const results = list
+    // Assume lastRaceResults is an array of { raceId, finishedAt, leaderboard }
+    const results = lastRaceResults
       .filter(r => r && r.finishedAt && (now - r.finishedAt <= LAST_RESULTS_TTL_MS))
       .slice() // clone
-      .sort((a, b) => b.finishedAt - a.finishedAt);
+      .sort((a, b) => b.finishedAt - a.finishedAt)
+      .map(r => ({
+        raceId: r.raceId,
+        finishedAt: r.finishedAt,
+        leaderboard: r.leaderboard
+      }));
 
     return res.json(results);
   } catch (err) {
