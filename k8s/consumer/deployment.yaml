@@ -42,7 +42,7 @@ spec:
       containers:
       - name: consumer
         image: 
-          projetosysd/race-consumer:04b5da115db450db53d1015a0c7afeada9d9d70a
+          projetosysd/race-consumer:d2910e9431c382cc616f8c7a429d32bba1a42410
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
