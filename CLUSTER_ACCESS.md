@@ -21,15 +21,15 @@ grafana   LoadBalancer   10.96.xxx.xxx   <pending/IP>    80:xxxxx/TCP   1m
 
 ### 1. Docker Desktop / Local Kubernetes (Mac/Windows)
 - **EXTERNAL-IP**: Shows `localhost` or `127.0.0.1`
-- **UI Access**: http://localhost
-- **Grafana Access**: http://localhost (on the grafana service port)
+- **UI Access**: http://localhost:8080
+- **Grafana Access**: http://localhost:3000
 
-Note: If both services show `localhost`, Docker Desktop will use different ports. Check the `PORT(S)` column for the mapped port.
+Note: Docker Desktop assigns `localhost` to all LoadBalancer services, so we use different ports to avoid conflicts.
 
 ### 2. Remote Cluster with LoadBalancer Support
 - **EXTERNAL-IP**: Shows a real IP address (e.g., `203.0.113.10`)
-- **UI Access**: http://<EXTERNAL-IP>
-- **Grafana Access**: http://<EXTERNAL-IP-of-grafana>
+- **UI Access**: http://<EXTERNAL-IP>:8080
+- **Grafana Access**: http://<EXTERNAL-IP-of-grafana>:3000
 
 ### 3. Remote Cluster WITHOUT LoadBalancer (EXTERNAL-IP shows `<pending>`)
 
@@ -37,15 +37,15 @@ If the EXTERNAL-IP stays `<pending>`, use `kubectl port-forward`:
 
 #### Access UI:
 ```bash
-kubectl port-forward svc/ui 8080:80
+kubectl port-forward svc/ui 8080:8080
 ```
 Then open: http://localhost:8080
 
 #### Access Grafana:
 ```bash
-kubectl port-forward svc/grafana 8081:80
+kubectl port-forward svc/grafana 3000:3000
 ```
-Then open: http://localhost:8081
+Then open: http://localhost:3000
 
 ## Quick Access Script
 

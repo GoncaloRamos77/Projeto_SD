@@ -17,23 +17,23 @@ fi
 # Determine access method
 if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "<pending>" ]; then
     echo "✅ LoadBalancer with External IP detected"
-    echo "🌐 UI available at: http://$EXTERNAL_IP"
+    echo "🌐 UI available at: http://$EXTERNAL_IP:8080"
     echo ""
     echo "Opening browser..."
     case "$(uname -s)" in
-        Darwin) open "http://$EXTERNAL_IP" ;;
-        Linux) xdg-open "http://$EXTERNAL_IP" 2>/dev/null || echo "Please open http://$EXTERNAL_IP in your browser" ;;
-        *) echo "Please open http://$EXTERNAL_IP in your browser" ;;
+        Darwin) open "http://$EXTERNAL_IP:8080" ;;
+        Linux) xdg-open "http://$EXTERNAL_IP:8080" 2>/dev/null || echo "Please open http://$EXTERNAL_IP:8080 in your browser" ;;
+        *) echo "Please open http://$EXTERNAL_IP:8080 in your browser" ;;
     esac
 elif [ -n "$EXTERNAL_HOST" ] && [ "$EXTERNAL_HOST" != "<pending>" ]; then
     echo "✅ LoadBalancer with hostname detected"
-    echo "🌐 UI available at: http://$EXTERNAL_HOST"
+    echo "🌐 UI available at: http://$EXTERNAL_HOST:8080"
     echo ""
     echo "Opening browser..."
     case "$(uname -s)" in
-        Darwin) open "http://$EXTERNAL_HOST" ;;
-        Linux) xdg-open "http://$EXTERNAL_HOST" 2>/dev/null || echo "Please open http://$EXTERNAL_HOST in your browser" ;;
-        *) echo "Please open http://$EXTERNAL_HOST in your browser" ;;
+        Darwin) open "http://$EXTERNAL_HOST:8080" ;;
+        Linux) xdg-open "http://$EXTERNAL_HOST:8080" 2>/dev/null || echo "Please open http://$EXTERNAL_HOST:8080 in your browser" ;;
+        *) echo "Please open http://$EXTERNAL_HOST:8080 in your browser" ;;
     esac
 else
     echo "⚠️  No external LoadBalancer IP available"
@@ -43,5 +43,5 @@ else
     echo ""
     echo "Press Ctrl+C to stop port-forwarding"
     echo "----------------------------------------"
-    kubectl port-forward svc/ui 8080:80
+    kubectl port-forward svc/ui 8080:8080
 fi
