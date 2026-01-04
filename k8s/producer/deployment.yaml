@@ -42,7 +42,7 @@ spec:
       containers:
       - name: producer
         image: 
-          projetosysd/race-producer:04b5da115db450db53d1015a0c7afeada9d9d70a
+          projetosysd/race-producer:7c825898f5bd6509ce611d1f7feab35944ece907
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
