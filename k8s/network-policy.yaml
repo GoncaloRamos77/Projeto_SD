@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-producer-to-rabbitmq
-  namespace: default
+  namespace: grupo4
 spec:
   podSelector:
     matchLabels:
@@ -31,7 +31,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-consumer-to-rabbitmq
-  namespace: default
+  namespace: grupo4
 spec:
   podSelector:
     matchLabels:
@@ -51,7 +51,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-ui-to-consumer
-  namespace: default
+  namespace: grupo4
 spec:
   podSelector:
     matchLabels:
@@ -71,7 +71,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-external-to-ui
-  namespace: default
+  namespace: grupo4
 spec:
   podSelector:
     matchLabels:

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: rabbitmq
-  namespace: default
+  namespace: grupo4
   labels:
     app: rabbitmq
 spec:
@@ -23,7 +23,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: rabbitmq-management
-  namespace: default
+  namespace: grupo4
   labels:
     app: rabbitmq
 spec:

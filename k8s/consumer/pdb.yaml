@@ -2,7 +2,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: consumer-pdb
-  namespace: default
+  namespace: grupo4
 spec:
   minAvailable: 2
   selector:

@@ -2,15 +2,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ui
-  namespace: default
+  namespace: grupo4
   labels:
     app: ui
 spec:
-  type: LoadBalancer
+  type: NodePort
   ports:
   - name: http
     port: 8080
     targetPort: 3000
+    nodePort: 30084
     protocol: TCP
   selector:
     app: ui

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: consumer
-  namespace: default
+  namespace: grupo4
   labels:
     app: consumer
 spec:

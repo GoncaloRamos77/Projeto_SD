@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: producer-config
-  namespace: default
+  namespace: grupo4
 data:
   NUM_PARTICIPANTS: "10"
   NUM_RACES: "5"

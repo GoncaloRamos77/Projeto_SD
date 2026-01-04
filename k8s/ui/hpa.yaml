@@ -2,7 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: ui-hpa
-  namespace: default
+  namespace: grupo4
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

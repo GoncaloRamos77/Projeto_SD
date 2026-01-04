@@ -2,7 +2,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: rabbitmq-pdb
-  namespace: default
+  namespace: grupo4
 spec:
   minAvailable: 1
   selector:

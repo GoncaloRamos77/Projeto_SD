@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
-  namespace: default
+  namespace: grupo4
 data:
   racing-overview.json: |
     {
