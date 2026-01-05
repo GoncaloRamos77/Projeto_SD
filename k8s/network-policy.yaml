@@ -82,3 +82,25 @@ spec:
   - ports:
     - protocol: TCP
       port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: grupo4
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 3000  # UI metrics
+    - protocol: TCP
+      port: 3001  # Consumer metrics
+    - protocol: TCP
+      port: 3002  # Producer metrics
