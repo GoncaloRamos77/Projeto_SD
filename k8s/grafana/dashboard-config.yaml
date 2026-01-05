@@ -9,7 +9,7 @@ data:
     providers:
     - name: 'default'
       orgId: 1
-      folder: ''
+      folder: 'Grupo 4'
       type: file
       disableDeletion: false
       editable: true
