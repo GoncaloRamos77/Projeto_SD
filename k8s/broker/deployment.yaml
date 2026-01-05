@@ -51,7 +51,7 @@ spec:
             - ping
           initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 5
+          timeoutSeconds: 10
         readinessProbe:
           exec:
             command:
@@ -59,7 +59,7 @@ spec:
             - check_port_connectivity
           initialDelaySeconds: 10
           periodSeconds: 5
-          timeoutSeconds: 3
+          timeoutSeconds: 10
       volumes:
       - name: rabbitmq-config
         configMap:
