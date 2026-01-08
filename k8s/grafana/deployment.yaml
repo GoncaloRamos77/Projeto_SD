@@ -39,7 +39,7 @@ spec:
         - name: grafana-dashboards-config
           mountPath: /etc/grafana/provisioning/dashboards
         - name: grafana-dashboards
-          mountPath: /var/lib/grafana/dashboards
+          mountPath: /etc/grafana/dashboards-files
         resources:
           requests:
             memory: "128Mi"
@@ -51,13 +51,13 @@ spec:
           httpGet:
             path: /api/health
             port: 3000
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /api/health
             port: 3000
-          initialDelaySeconds: 10
+          initialDelaySeconds: 60
           periodSeconds: 5
       volumes:
       - name: grafana-storage
